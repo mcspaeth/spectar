@@ -1,0 +1,12 @@
+#!/bin/csh
+
+tasm -65 -b -fff spectar.asm
+
+dd if=spectar.obj bs=2048 count=1 skip=2 > spl11a-3
+dd if=spectar.obj bs=2048 count=1 skip=3 > spl10a-2
+dd if=spectar.obj bs=2048 count=1 skip=4 > spl9a-3
+dd if=spectar.obj bs=2048 count=1 skip=5 > spl8a-2
+dd if=spectar.obj bs=2048 count=1 skip=6 > spl7a-2
+dd if=spectar.obj bs=2048 count=1 skip=7 > spl6a-2
+
+zip ../../spectar.zip spl*
