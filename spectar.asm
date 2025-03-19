@@ -2,23 +2,40 @@
 				;; $000e-000f		= Screen loc pointer
 				;; $0014-0015		= String loc pointer
 
-				;; $001a				= SPRVAL
-				;; $001c				= SPR1H
-				;; $001d				= SPR1V
-				;; $0022				= SPR2H
-				;; $0023				= SPR2V
+DELL		= $0016									; Delay counter
+DELH		= $0017									; Delay counter
+SPRVAL	= $001a									; MOB 2,1 values
+SPR1H		= $001c									; MOB1 X
+SPR1V		= $001d									; MOB1 Y
+SPR2H		= $0022									; MOB2 X
+SPR2V		= $0023									; MOB2 Y
 
+PRNG		= $0062									; (2 bytes) PRNG
 				;; $006c				= ??
 				;; $0076				= Current player level?
-				;; $00a0				= Half credits
-				;; $00a1				= Credits (goes to coinage screen immediately)
-				;; $00ae				= Audio1 store?
-				;; $00a7				= Status D7 = Game
-				;; $00ab				= ??
-				;; $00ae				= ??
-				;; $00af				= ??
+HCOIN		= $00a0									; Half coins
+CREDIT	= $00a1									; Credits
 
-				;; $00bd-00be		= Current player score
+AUD1		= $a3										; Audio1 Store
+				;; $00ae				= Audio1 store?
+STATUS	= $00a7									; D7 = Game mode, D2 = Flip
+				;; $00ab				= ??
+SCOREH	= $00ae									; (2 bytes) daily high score
+SCOREP	= $00bd									; (2 bytes) current player score
+
+PNUM		= $00bf									; Current player #
+NUMP		= $00c0									; # Players
+LIVES		= $00c1									; Initial lives
+LEVEL		= $00c3									; Level
+
+P1SCRL	= $00d0
+P2SCRL	= $00d1
+P1SCRH	= $00d2
+P2SCRH	= $00d3
+
+P1LEVEL	= $00da
+P2LEVEL	= $00db
+								
 				;; $00bf				= current player
 
 				;; $00e0-00ff		= Not used?
@@ -42,7 +59,7 @@ L0257		= $0257									; ??
 L025c		= $025c									; ??
 L025b		= $025b									; ??
 L0262		= $0262									; ??
-L0264		= $0264									;	??
+L0264		= $0264									; ??
 L0266		= $0266									; ??
 L0267		= $0267									; ??
 
@@ -62,6 +79,18 @@ L03e8		= $03e8									; ??
 L03f0		= $03f0									; ??
 L03f8		= $03f8									; ??
 
+MOB1H		= $5000
+MOB1V		= $5040
+MOB2H		= $5080
+MOB2V		= $50c0
+MOBLAT	= $5100
+
+DSW			= $5100									; DIP switches
+IN0			= $5101									; Control inputs
+IN0B		= $5105									; Mirror of above 
+AUDIO1	= $5200									; AUDIO1 latch 
+AUDIO2	= $5201									; AUDIO2 latch 
+
 
 				.org		$0000
 				.db			$ff
@@ -69,20 +98,20 @@ L03f8		= $03f8									; ??
 				.org		$1000
 LRESET:
 L1000:
-				sei													; Disable interrupts
+				sei															; Disable interrupts
 				ldx			#$ff
-				txs													; Set stack pointer
+				txs															; Set stack pointer
 L1004:
-				lda			$5103								; Interrupt condition
+				lda			$5103										; Interrupt condition
 				dex
-				bmi			L1004								; Loop
+				bmi			L1004										; Loop
 
 				cld
 				lda			#$00
-				sta			$a0									; Half coins
-				sta			$a1									; Credits
+				sta			HCOIN										; Half coins
+				sta			CREDIT									; Credits
 L1011:
-				sta			$a7
+				sta			STATUS
 
 				;; Write interupt vector
 				ldx			#$00
@@ -93,48 +122,51 @@ L1011:
 				sta			$ffff
 
 				lda			#$10
-				sta			$5200								; Audio1
-				cli													; Enable interrupts
-				jsr			L2453								; Write characte ram and ??
-				jsr			L110c								; Startup screen and delay
-				
+				sta			AUDIO1									; Audio1
+				cli															; Enable interrupts
+				jsr			L2453										; Write characte ram and ??
+				jsr			L110c										; Startup screen and delay
+
+				;; Initialize some variables
 				lda			#$00
 				sta			$0102
 				sta			$ab
 				sta			$6c
-				sta			$bd
-				sta			$be
-				sta			$ae
+				sta			SCOREP									; Current score lo 
+				sta			SCOREP+1								; Current score hi 
+				sta			SCOREH									; High score lo 
 				sta			$025b
 				lda			#$ff
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				sta			$6c
 				sta			$0252
 				sta			$0262
 				lda			#$10
-				sta			$af
-				jsr			L29f6								; Init P1 values (?)
-				jsr			L29fb								; Init P2 values (?)
-				jmp			L157e
+				sta			SCOREH+1								; High score hi 
+				jsr			L29f6										; Init P1 values
+				jsr			L29fb										; Init P2 values
+				jmp			L157e										; Go to attracr mode 
 
+
+				;; Start of gameplay
 L105a:
-				sei													; Disable interrupts
+				sei															; Disable interrupts
 				ldx			#$ff
-				txs													; Set stack pointer
-				cli
-				jsr			L2453								; Write characte ram and ??
+				txs															; Set stack pointer
+				cli															; Enable interrupts
+				jsr			L2453										; Write characte ram and ??
 
 				lda			#$00
-				sta			$bd
-				sta			$be
+				sta			SCOREP
+				sta			SCOREP+1
 				sta			$dc
 				sta			$dd
 				sta			$1b
 				sta			$2f
 				sta			$76
 				lda			#$01
-				sta			$bf
-				sta			$c3
+				sta			PNUM
+				sta			LEVEL									; Level 
 				lda			#$24
 				sta			$74
 				jsr			L2d71
@@ -155,20 +187,27 @@ L1095:
 				jsr			L260f
 				lda			$74
 				bne			L10ab
+
 				jmp			L1238
+
 L10ab:
 				lda			$3e
 				and			#$10
 				beq			L10b8
+
 				lda			$2f
 				bne			L10b8
+
 				jmp			L1238
+
 L10b8:
 				lda			$30
 				and			#$02
 				beq			L1095
+
 				jsr			L132f
 				jmp			L108f
+
 L10c4:
 				jsr			L1d70
 				jsr			L1c92
@@ -192,20 +231,25 @@ L10e2:
 				lda			($66), y
 				cmp			#$e8
 				beq			L10f1
+
 				cmp			#$20
 				bne			L10f4
+
 L10f1:
 				jmp			L1eb2
 L10f4:
 				jsr			L1fdb
 				bcs			L1109
+
 				lda			$2a
 				cmp			$66
 				bne			L1105
+
 				lda			$2b
 L1101:
 				cmp			$67
 				beq			L1109
+
 L1105:
 				lda			#$21
 				sta			($66), y
@@ -214,7 +258,7 @@ L1109:
 
 				;; Startup screen
 L110c:
-				jsr			L2e25										; Clear screen
+				jsr			CLRSCN									; Clear screen
 				ldx			#$12										; Length
 L1111:
 				lda			L1139, x								; String loc
@@ -240,6 +284,7 @@ L112f:
 				sta			$4104, x								; Screen loc
 				dex
 				bpl			L112f										; Loop
+
 				rts
 
 L1139:
@@ -252,15 +297,16 @@ L1163:
 				.db			"PROGRAMMED BY MANUEL J CAMPOS  "
 
 L1182:
-				ldy			$C3
+				ldy			LEVEL
 				bne			L1188
+
 				ldy			#$01
 L1188:
 				dey
 				tya
-				asl			a
+				asl			a												; LEVEL << 1 
 				tay
-				jsr			L2e78
+				jsr			L2e78										; New enemy chars from y
 
 				lda			#$4b
 				sta			$43
@@ -276,27 +322,28 @@ L1188:
 				jsr			L2e7c
 
 				;; Copy custom per-level maze chars
-				lda			$76									; Current level?
+				lda			$76											; Current level?
 				and			#$0f
-				asl			a										; a*2
+				asl			a												; a*2
 				tax
 
 				;; Copy table address to ($0e-0f)
-				lda			L3f89, x							
+				lda			L3f89, x
 				sta			$0e
 				inx
 				lda			L3f89, x
 				sta			$0f
 
-				ldy			#$1f									; Loop counter
+				ldy			#$1f										; Loop counter
 L11bd:
 				lda			($0e), y
-				sta			$4dd0, y							; Chars $ba-bd
+				sta			$4dd0, y								; Chars $ba-bd
 				dey
-				bpl			L11bd								; Loop
+				bpl			L11bd										; Loop
 
-				bit			$a7									; Status
-				bpl			L11cc								; In attract
+				bit			STATUS									; Status
+				bpl			L11cc										; In attract
+
 				jsr			L13b0
 L11cc:
 				rts
@@ -308,9 +355,10 @@ L11cd:
 				sta			$0e
 				lda			#$00
 				sta			$48
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L11ee
+
 				lda			#$24
 				sec
 				sbc			$74
@@ -342,7 +390,9 @@ L1202:
 				dec			$86
 L1214:
 				bne			L1202
+
 				rts
+
 L1217:
 				ldy			#$00
 				ldx			#$06
@@ -350,10 +400,13 @@ L121b:
 				lda			($0e), y
 				cmp			#$20
 				bne			L1231
+
 				dec			$48
 				bpl			L1231
+
 				bit			$87
 				bmi			L1231
+
 				lda			#$e8
 				sta			($0e), y
 				dec			$87
@@ -363,35 +416,39 @@ L1231:
 				iny
 				iny
 				dex
-				bne			L121b
+				bne			L121b										; Loop 
+
 				rts
+
 L1238:
-				lda			#$f0
-				ora			$1a
-				sta			$1a
+				lda			#$f0										; Clear MOB2 
+				ora			SPRVAL
+				sta			SPRVAL
 				jsr			L2d59
 				lda			#$10
-				sta			$5200								; Audio1
-				ldx			$bf
+				sta			AUDIO1									; Audio1
+				ldx			PNUM
 				dex
 				jsr			L29fd
-				lda			#$ee
-				sta			$1a
+				lda			#$ee										; Clear MOB2,1 
+				sta			SPRVAL
 				jsr			L2389
 				inc			$76
 				lda			#$24
 				sta			$74
 				jsr			L258b
 				ldy			#$00
-				lda			$bf
+				lda			PNUM
 				cmp			#$01
 				beq			L1266
+
 				ldy			#$02
 L1266:
 				lda			#$00
-				jsr			L227e
+				jsr			L227e										; Add to player score & update
 				dec			$28
 				bpl			L1273
+
 				lda			#$00
 				sta			$28
 L1273:
@@ -402,41 +459,46 @@ L1273:
 				jmp			L108f
 L127e:
 				lda			#$10
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 				lda			#$ee
-				sta			$1a
+				sta			SPRVAL
 				jsr			L2d59
-				lda			$a7
+				lda			STATUS
 				and			#$03
 				bne			L129f
+
 L1290:
-				lda			$a7
+				lda			STATUS
 				and			#$fb
-				sta			$a7
-				jsr			L2453								; Write characte ram and ??
+				sta			STATUS
+				jsr			L2453										; Write character ram and ??
 				jsr			L2ba6
-				jmp			L157e
+				jmp			L157e										; Go to attracr mode
+
 L129f:
-				lda			$5100
+				lda			DSW	
 				eor			#$ff
 				and			#$04
 				bne			L1307
-				bit			$a7
-				bvs			L1290
-				jsr			L2e25										; Clear screen
-				lda			$a7
+
+				bit			STATUS
+				bvs			L1290										; D6 set
+
+				jsr			CLRSCN									; Clear screen
+				lda			STATUS
 				and			#$03
-				sta			$bf
+				sta			PNUM
 				beq			L1290
-				lda			$bf
+
+				lda			PNUM
 				and			#$02
 				asl			a
 				and			#$04
 				sta			$00
-				lda			$a7
+				lda			STATUS
 				and			#$fb
 				ora			$00
-				sta			$a7
+				sta			STATUS
 				jsr			L2460
 				jsr			L2453										; Write characte ram and ??
 				ldy			#$00
@@ -444,38 +506,40 @@ L129f:
 				jsr			L2b00										; Draw language string a
 				lda			#$13										; TOPPING HIGH SCORE
 				jsr			L2b00										; Draw language string a
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L12ea
-				lda			$bf
-				ora			#$30
-				sta			$41e2
+
+				lda			PNUM
+				ora			#$30										; BCD to char
+				sta			$41e2										; Location 
 				jmp			L12f1
+
 L12ea:
-				lda			$bf
-				ora			#$30
-				sta			$421d
+				lda			PNUM
+				ora			#$30										; BCD to char
+				sta			$421d										; Location
 L12f1:
 				jsr			L2d53
 				jsr			L2d53
-				lda			$a7
+				lda			STATUS
 				ora			#$40
-				sta			$a7
-				lda			$bf
+				sta			STATUS
+				lda			PNUM
 				lsr			a
 				tax
 				jsr			L29d5
 				jmp			L1238
 L1307:
-				jsr			L2e25										; Clear screen
+				jsr			CLRSCN									; Clear screen
 				jsr			L26ad
 
 				;; Add bonus credit?
 				sed
 				clc
-				lda			$a1											; Credits
+				lda			CREDIT									; Credits
 				adc			#$01
-				sta			$a1											; Credits
+				sta			CREDIT									; Credits
 L1315:
 				cld
 
@@ -494,51 +558,56 @@ L132f:
 				lda			#$ff
 				sta			$65
 				lda			#$ee
-				sta			$1a
+				sta			SPRVAL
 				jsr			L2bd2
 				lda			$2f
 				sta			$b1
 				lda			$3e
 				and			#$10
 				bne			L1351
+
 				lda			$80
 				asl			a
 				clc
 				adc			$2f
 				sta			$b1
 L1351:
-				lda			$c0
+				lda			NUMP										; # Players
 				cmp			#$02
-				bne			L1387
-				lda			$bf
+				bne			L1387										; 1P game
+
+				lda			PNUM
 				cmp			#$01
-				beq			L1371
+				beq			L1371										; Swith to P2
+
 				lda			#$01
-				sta			$bf
-				lda			$a7
+				sta			PNUM
+				lda			STATUS
 				and			#$fb
-				sta			$a7
-				jsr			L29fb								; Init P2 values (?)
+				sta			STATUS
+				jsr			L29fb										; Init P2 values (?)
 				jsr			L29ce
-				lda			$c1
+				lda			LIVES
 				bne			L138e
+
 L1371:
 				lda			#$02
-				sta			$bf
-				lda			$a7
-				ora			#$04
-				sta			$a7
+				sta			PNUM
+				lda			STATUS
+				ora			#$04										; Set flip?
+				sta			STATUS
 				jsr			L2460
-				jsr			L29f6								; Init P1 values (?)
+				jsr			L29f6										; Init P1 values (?)
 				jsr			L29d3
 				jmp			L138a
 L1387:
-				jsr			L29f6								; Init P1 values (?)
+				jsr			L29f6										; Init P1 values (?)
 L138a:
-				lda			$c1
+				lda			LIVES
 				beq			L13ad
+
 L138e:
-				jsr			L2e25								; Clear screen
+				jsr			CLRSCN							; Clear screen
 				jsr			L2453								; Write characte ram and ??
 				jsr			L14a5
 				jsr			L258b
@@ -546,6 +615,7 @@ L138e:
 				lsr			a
 				adc			#$00
 				bne			L13a3
+
 				lda			#$01
 L13a3:
 				sta			$80
@@ -561,11 +631,11 @@ L13b0:
 				lda			#$ff
 				sta			$65
 				sta			$6c
-				sta			L13f2
-				sta			$5201								; Audio2
+				sta			L13f2										; Write to ROM?! 
+				sta			AUDIO2									; Audio2
 				lda			#$90
-				sta			$a3
-				sta			$5200								; Audio1
+				sta			AUD1
+				sta			AUDIO1									; Audio1
 				lda			#$00
 				sta			$a4
 				sta			$a9
@@ -577,11 +647,15 @@ L13ce:
 				jsr			L1402
 				lda			$1b
 				bne			L13e4
+
 				bit			$6c
 				bpl			L13e8
+
 				bit			$a4
 				bpl			L13f2
+
 				rts
+
 L13de:
 				lda			#$df
 				jsr			L2264
@@ -594,20 +668,26 @@ L13e8:
 				jsr			L2269
 				dec			$6c
 				bmi			L13de
+
 				rts
+
 L13f2:
 				lda			#$02
 				jsr			L2269
 				dec			$a4
 				bmi			L13fc
+
 				rts
+
 L13fc:
 				lda			#$fd
 				jsr			L2264
 				rts
+
 L1402:
 				lda			$70
 				beq			L140e
+
 				lda			#$00
 				sta			$a9
 				lda			#$04
@@ -615,29 +695,36 @@ L1402:
 L140e:
 				lda			$72
 				beq			L1415
+
 				jmp			L148c
+
 L1415:
 				bit			$65
 				bmi			L1450
+
 				dec			$a9
 				bpl			L148b
+
 				ldx			$65
 				lda			#$05
 				sta			$a9
 				lda			L34a1, x
 				cmp			#$ff
 				beq			L1430
-				sta			$5201										; Audio2
+
+				sta			AUDIO2									; Audio2
 				inc			$65
 				rts
+
 L1430:
 				lda			#$ff
 				sta			$65
-				sta			$5201										; Audio2
+				sta			AUDIO2									; Audio2
 				rts
 L1438:
 				dec			$a9
 				bpl			L148b
+
 				lda			$64
 				and			#$03										; Mask 2 LSBs 
 				tax
@@ -652,17 +739,21 @@ L1450:
 				lda			L0252
 				and			#$20
 				beq			L1438
+
 				lda			L0262
 				and			#$20
 				beq			L1438
+
 				dec			$a9
 				bpl			L148b
+
 				lda			$64
 				and			#$3f
 				tax
 				lda			#$26
 				cpx			#$20
 				bcc			L146f
+
 				lda			#$14
 L146f:
 				sec
@@ -670,28 +761,32 @@ L146f:
 				sbc			$6f
 				cpx			#$1f
 				bcs			L147a
+
 				sbc			$6f
 L147a:
 				sta			$a9
 				lda			L3461, x
 L147f:
 				sta			$a8
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				inc			$64
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 L148b:
 				rts
+
 L148c:
 				dec			$a9
 				bmi			L1491
+
 				rts
+
 L1491:
 				lda			$72
 				and			#$03
 				tax
 				lda			L345d, x
-				sta			$5201										; Audio2
+				sta			AUDIO2									; Audio2
 				sta			$a8
 				lda			#$06
 				sta			$a9
@@ -701,57 +796,65 @@ L1491:
 
 L14a5:
 				lda			#$10
-				sta			$5200										; Audio1
+				sta			AUDIO1									; Audio1
 				lda			#$ee
-				sta			$1a
+				sta			SPRVAL
 				lda			#$0c										; GET READY
 				jsr			L2b00										; Draw language string a
 				lda			#$0d										; PLAYER _
 				jsr			L2b00										; Draw language string a
-				ldy			$c1
-				lda			$bf
-				ora			#$30
+				ldy			LIVES
+				lda			PNUM
+				ora			#$30										; BCD to char
 				tax
-				lda			$a7
+				lda			STATUS
 				and			#$04
-				bne			L14e6
+				bne			L14e6										; Flip!
+
 				txa
-				sta			$4255
-				lda			#$e4
+				sta			$4255										; Draw player #
+
+				;; Draw remaining cars
+				lda			#$e4										; Up car char 
 L14cb:
 				sta			$42af, y
 				dey
 				bne			L14cb
+
 				jsr			L2d59
 				lda			#$20
 				sta			$42b0
 				lda			#$48
-				sta			$1d
+				sta			SPR1V
 				lda			#$80
-				sta			$1c
+				sta			SPR1H
 				ldx			#$00
 				jmp			L1507
+
+				;; Flip version
 L14e6:
 				txa
 				sta			$41aa
 				ldx			#$05
-				lda			#$e5
+				lda			#$e5										; Down car char 
 L14ee:
 				sta			$416a, x
 				dex
 				dey
-				bne			L14ee
+				bne			L14ee										; Loop 
+
 				jsr			L2d59
 				lda			#$20
 				sta			$416f
 				lda			#$9a
-				sta			$1d
+				sta			SPR1V
 				lda			#$60
-				sta			$1c
+				sta			SPR1H
 				ldx			#$04
+
 L1507:
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 				lda			#$00
 				sta			$42
 				sta			$43
@@ -761,7 +864,7 @@ L1516:
 				lda			L3409, x
 				sta			$41
 				lda			L3411, x
-				sta			$1a
+				sta			SPRVAL
 				lda			L3419, x
 				sta			$1f
 				lda			L3421, x
@@ -772,65 +875,77 @@ L1516:
 				lda			$03
 				cmp			#$04
 				bcc			L1516
-				dec			$c1
+
+				dec			LIVES
 				rts
+
 L1539:
 				jsr			L1571
 				dec			$43
 				bpl			L1557
+
 				lda			#$08
 				sta			$43
 				dec			$a9
 				bpl			L1557
+
 				ldy			$42
 				lda			L3429, y
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				lda			L3443, y
 				sta			$a9
 				inc			$42
 L1557:
 				lda			$1f
 				beq			L1565
+
 				clc
-				adc			$1d
-				sta			$1d
+				adc			SPR1V
+				sta			SPR1V
 				cmp			$41
 				bne			L1539
+
 				rts
+
 L1565:
 				lda			$1e
 				clc
-				adc			$1c
-				sta			$1c
+				adc			SPR1H
+				sta			SPR1H
 				cmp			$41
 				bne			L1539
+
 				rts
+
+				;; Short delay (~ 1/3 frame)
 L1571:
 				lda			#$01
-				sta			$17
+				sta			DELH
 L1575:
-				dec			$16
-				bne			L1575
-				dec			$17
-				bpl			L1575
+				dec			DELL
+				bne			L1575										; Inner loop 
+
+				dec			DELH
+				bpl			L1575										; Outer loop
+
 				rts
 
 				;; Start attract?
 L157e:
 				lda			#$ee
-				sta			$5100
-				sta			$1a
+				sta			MOBLAT
+				sta			SPRVAL
 				lda			#$10
-				sta			$a3											; Audio1 store
-				sta			$5200										; Audio1
+				sta			AUD1										; Audio1 store
+				sta			AUDIO1									; Audio1
 				lda			#$ff
-				sta			$5201										; Audio2
+				sta			AUDIO2									; Audio2
 				lda			#$00
-				sta			$a7
-				sta			$c3
+				sta			STATUS
+				sta			LEVEL
 				sta			$6f
 				sta			$76
-				jsr			L2e25										; Clear screen
+				jsr			CLRSCN									; Clear screen
 				jsr			L2453										; Write characte ram and ??
 				jsr			L2525										; Title/coinage screen
 				inc			L0102										; Attract cycle
@@ -842,31 +957,32 @@ L157e:
 				lda			#$01
 L15b2:
 				sta			$76											; Points for enemy
-				sta			$c3
+				sta			LEVEL										; Level 
 				sta			L0102										; Attract cycle
 				ora			#$30										; To char code
 				sta			$426e										; Draw to screen
 				
 				dec			$76
-				inc			$63
+				inc			PRNG+1
 				jsr			L1182
 				lda			#$1f
-				sta			$17
+				sta			DELH
 L15c9:
 				jsr			L2b61										; Draw DEPOSIT COIN
 
 L15cc:
-				lda			$a1											; Credits?
+				lda			CREDIT									; Credits?
 				bne			L1615										; Check P1/P2
 
 				inc			$3f
 				bne			L15c9										; Loop
-				dec			$17
+
+				dec			DELH
 				bne			L15c9										; Loop
-				
+
 				jsr			L286e
 				lda			#$0d
-				sta			$17
+				sta			DELH
 				lda			#$0c
 				sta			$b8
 				sta			$b3
@@ -880,88 +996,103 @@ L15cc:
 L15f7:
 				jsr			L10c4
 				jsr			L1683
-				lda			$a1									; Credits
+				lda			CREDIT									; Credits
 				bne			L1607
 
 				lda			$30
 				and			#$02
 				beq			L160a
-L1607:
-				jmp			L157e
 
+L1607:
+				jmp			L157e										; Go to attract mode 
+
+				;; Delay
 L160a:
 				dec			$3f
-				bne			L15f7
-				dec			$17
-				bne			L15f7
-				jmp			L157e
+				bne			L15f7										; Inner loop
 
+				dec			DELH
+				bne			L15f7										; Outer loop 
+
+				jmp			L157e										; Go to attract mode 
+
+
+				;; Check P1/P2
 L1615:
-				inc			$62
-				lda			$5105								; Player inputs
-				eor			#$ff									; Invert
-				and			#$03									; Mask start
+				inc			PRNG
+				lda			IN0B										; Player inputs
+				eor			#$ff										; Invert
+				and			#$03										; Mask start
 				cmp			#$01
-				beq			L163e								; P1 pressed
+				beq			L163e										; P1 pressed
 
 				cmp			#$02
-				beq			L1630								; P2 pressed
+				beq			L1630										; P2 pressed
 
-				dec			$16
+				dec			DELL
 				bne			L15cc
 
-				jsr			L2844								; Flash press start
+				jsr			L2844										; Flash press start
 				jmp			L15cc
 
 L1630:
-				lda			$a1									; Credits
-				cmp			#$02									; 2 credits?
-				bcs			L1639								; Enough credits for 2P
+				lda			CREDIT									; Credits
+				cmp			#$02										; 2 credits?
+				bcs			L1639										; Enough credits for 2P
 
 				jmp			L15c9
 
 L1639:
-				jsr			L2677								; Decrement credits
-				lda			#$02									; 2 Players
+				jsr			L2677										; Decrement credits
+				lda			#$02										; 2 Players
 
 L163e:
-				sta			$c0									; # Players
-				jsr			L2677								; Decrement credits
+				sta			NUMP										; # Players
+				jsr			L2677										; Decrement credits
 
 				lda			#$03
 				sta			$28
-				jsr			L2e25								; Clear screen
+				jsr			CLRSCN									; Clear screen
 
-				lda			#$01
-				sta			$bf
-				lda			#$80
-				sta			$a7
-				lda			$c0
+				lda			#$01										; Player 1 
+				sta			PNUM
+				lda			#$80										; Game mode 
+				sta			STATUS
+				lda			NUMP										; # Players 
 				cmp			#$02
-				bne			L165b
-				jsr			L1666
+				bne			L165b										; 1P = 1 set of blips 
+
+				jsr			L1666										; Play blips
+
 L165b:
-				jsr			L1666
+				jsr			L1666										; Play blips
 				lda			#$00
 				sta			L0102
 				jmp			L105a
+				
 L1666:
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 				ldx			#$00
+
 L166d:
 				lda			L33e3, x
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				ldy			L33f6, x
+
 L1676:
 				dec			$a9
-				bne			L1676
+				bne			L1676										; Inner loop
+
 				dey
-				bpl			L1676
+				bpl			L1676										; Outer loop
+
 				inx
-				cpx			#$12
-				bne			L166d
+				cpx			#$12										; End of table 
+				bne			L166d										; Note loop
+
 				rts
+
 L1683:
 				lda			$3f
 				and			#$1f
@@ -969,20 +1100,24 @@ L1683:
 				beq			L16a0
 				cmp			#$08
 				beq			L1696
+
 				lda			$34
-				and			#$ef
+				and			#$ef										; Clear D4 
 				sta			$34
 				rts
+
 L1696:
-				jsr			L2e39
-				and			#$10
+				jsr			GETPRNG									; Kick PRNG
+				and			#$10										; Set D4 
 				ora			$34
 				sta			$34
 				rts
 L16a0:
-				jsr			L2e39
-				bcs			L16b3
-				bvs			L16b3
+				jsr			GETPRNG									; Kick PRNG
+				bcs			L16b3										; D7
+
+				bvs			L16b3										; D6 
+
 				inc			$70
 				lda			$70
 				and			#$07
@@ -1110,12 +1245,15 @@ L182a:
 				lda			$41
 				cmp			#$e8
 				beq			L183d
+
 				cmp			#$20
 				bne			L1843
+
 				lda			$05
 				ora			#$04
 				sta			$05
 				jmp			L1843
+
 L183d:
 				lda			$05
 				ora			#$24
@@ -1124,6 +1262,7 @@ L1843:
 				lda			$42
 				cmp			#$20
 				bne			L184f
+
 				lda			$05
 				ora			#$02
 				sta			$05
@@ -1131,6 +1270,7 @@ L184f:
 				lda			$43
 				cmp			#$20
 				bne			L185b
+
 				lda			$05
 				ora			#$01
 				sta			$05
@@ -1161,6 +1301,7 @@ L185c:
 				adc			$0f
 				sta			$0f
 				rts
+
 L188a:
 				lda			$09
 				and			#$f8
@@ -1168,6 +1309,7 @@ L188a:
 				lda			$05
 				and			#$20
 				beq			L189c
+
 				lda			$08
 				ora			#$20
 				sta			$08
@@ -1181,12 +1323,14 @@ L189c:
 				adc			$0f
 				sta			$0f
 				rts
+
 L18af:
 				ldx			$3d
 				ldy			L3299, x
 				lda			#$20
 				bit			$08
 				bpl			L18c2
+
 				lda			$08
 				and			#$7f
 				sta			$08
@@ -1195,10 +1339,12 @@ L18c2:
 				sta			($0e), y
 				asl			$08
 				rts
+
 L18c7:
 				lda			$0a
 				and			#$20
 				bne			L18ed
+
 				lda			$09
 				ldy			#$00
 				sta			($0e), y
@@ -1210,13 +1356,16 @@ L18c7:
 				and			#$07
 				cmp			#$07
 				beq			L18e6
+
 				inc			$09
 				rts
+
 L18e6:
 				lda			$0a
 				ora			#$40
 				sta			$0a
 				rts
+
 L18ed:
 				lda			$05
 				ora			#$40
@@ -1228,14 +1377,18 @@ L18ed:
 				sta			($0e), y
 				lda			$08
 				beq			L1903
+
 				dec			$74
 L1903:
 				lda			$09
 				cmp			#$20
 				bcc			L190e
+
 				bit			$0a
 				bmi			L1916
+
 				rts
+
 L190e:
 				lda			#$48
 				jsr			L191c
@@ -1244,7 +1397,9 @@ L190e:
 L1916:
 				lda			#$00
 				sta			L025b
+
 				rts
+
 L191c:
 				sta			$41
 				ldy			$32
@@ -1254,9 +1409,11 @@ L1920:
 				iny
 				cpy			$41
 				bcc			L1920
+
 				rts
+
 L192c:
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				tax
 				lda			L32c5, x
@@ -1296,11 +1453,13 @@ L196f:
 				ror			$18
 				dex
 				bne			L196f
+
 				lda			$18
 				and			#$1f
 				rts
+
 L197b:
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				clc
 				adc			$3d
@@ -1309,71 +1468,95 @@ L197b:
 				and			#$18
 				cmp			#$08
 				beq			L19da
+
 				cmp			#$10
 				beq			L19c4
+
 L1990:
 				ldx			$3d
 				lda			$2d
 				bpl			L1998
+
 				eor			#$ff
 L1998:
 				sta			$00
 				lda			$2c
 				bpl			L19a0
+
 				eor			#$ff
 L19a0:
 				cmp			$00
 				bcs			L19b4
+
 				lda			$2d
 				bpl			L19ae
+
 				lda			L32f1, x
 				jmp			L19c1
+
 L19ae:
 				lda			L32f5, x
 				jmp			L19c1
+
 L19b4:
 				lda			$2c
 				bpl			L19be
+
 				lda			L32e9, x
 				jmp			L19c1
+
 L19be:
 				lda			L32ed, x
 L19c1:
 				sta			$b2
 				rts
+
 L19c4:
 				lda			$03
 				cmp			#$04
 				bcc			L1990
+
 				bit			$2d
 				bpl			L19d4
+
 				cmp			#$06
 				beq			L19f3
-				bne			L19ee
+
+				bne			L19ee										; Always
+
 L19d4:
 				cmp			#$04
 				beq			L19f3
-				bne			L19ee
+
+				bne			L19ee										; Always
+
 L19da:
 				lda			$03
 				cmp			#$03
 				bcs			L1990
+
 				bit			$2c
 				bmi			L19ea
+
 				cmp			#$02
 				beq			L19f3
-				bne			L19ee
+
+				bne			L19ee										; Always
+
 L19ea:
 				cmp			#$00
 				beq			L19f3
+
 L19ee:
 				lda			#$03
 				sta			$b2
 				rts
+
 L19f3:
 				lda			#$00
 				sta			$b2
 				rts
+
 L19f8:
 				jsr			L1800
 				jsr			L1b15
@@ -1383,40 +1566,54 @@ L19f8:
 				jsr			L182a
 				bit			$0a
 				bpl			L1a0e
+
 				jmp			L1ac1
+
 L1a0e:
 				jsr			L197b
 				lda			$05
 				and			#$07
 				sta			$00
 				beq			L1a4d
+
 				cmp			#$01
 				beq			L1a3f
+
 				cmp			#$02
 				beq			L1a3a
+
 				cmp			#$04
 				beq			L1a44
+
 				cmp			#$03
 				beq			L1a6f
+
 				cmp			#$05
 				beq			L1a7d
+
 				cmp			#$06
 				beq			L1a86
+
 				jsr			L1a8f
 				lda			$b2
 				beq			L1a44
+
 				bmi			L1a3f
+
 L1a3a:
 				lda			#$04
 				jmp			L185c
+
 L1a3f:
 				lda			#$00
 				jmp			L185c
+
 L1a44:
 				lda			$05
 				ora			#$80
 				sta			$05
 				jmp			L188a
+
 L1a4d:
 				lda			$09
 				and			#$f8
@@ -1424,6 +1621,7 @@ L1a4d:
 				sta			$09
 				lda			$08
 				beq			L1a6e
+
 				rol			a
 				rol			$00
 				rol			a
@@ -1434,68 +1632,89 @@ L1a4d:
 				and			#$e0
 				sta			$08
 				bne			L1a6e
+
 				lda			#$40
 				sta			$08
 L1a6e:
 				rts
+
 L1a6f:
 				lda			$0d
 				beq			L1a3a
+
 				cmp			#$ff
 				beq			L1a3f
+
 				bit			$b2
 				bmi			L1a3f
+
 				bpl			L1a3a
 L1a7d:
 				jsr			L1a8f
 				lda			$b2
 				beq			L1a44
-				bne			L1a3f
+
+				bne			L1a3f										; Always
+
 L1a86:
 				jsr			L1a8f
 				lda			$b2
 				beq			L1a44
-				bne			L1a3a
+
+				bne			L1a3a										; Always
+
 L1a8f:
 				bit			$3e
 				bmi			L1abb
+
 				lda			$05
 				and			#$18
 				bne			L1abb
+
 				lda			$0d
 				and			#$0f
 				beq			L1abb
+
 				cmp			#$0f
 				beq			L1abb
+
 				lda			$85
 				and			#$0f
 				cmp			#$0f
 				beq			L1abb
+
 				dec			$0b
 				bpl			L1abc
-				lda			$62
+
+				lda			PRNG
 				and			#$01
 				bit			$09
 				bmi			L1ab9
-				adc			$c3
+
+				adc			LEVEL
 L1ab9:
 				sta			$0b
 L1abb:
 				rts
+
 L1abc:
 				lda			#$00
 				sta			$b2
 				rts
+
 L1ac1:
 				lda			$05
 				and			#$04
 				beq			L1aca
+
 				jmp			L1a44
+
 L1aca:
 				lda			$0a
 				ora			#$20
 				sta			$0a
 				rts
+
 L1ad1:
 				lda			$09
 				and			#$10
@@ -1503,6 +1722,7 @@ L1ad1:
 				asl			a
 				sta			$04
 				bne			L1ade
+
 				inc			$04
 L1ade:
 				lda			$09
@@ -1513,24 +1733,29 @@ L1ade:
 				sta			$3d
 				jsr			L1af1
 				bcc			L1af0
+
 				jsr			L18ed
 				sec
 L1af0:
 				rts
+
 L1af1:
 				ldy			#$00
 				lda			($0e), y
 				cmp			#$21
 				beq			L1b09
+
 				ldy			$04
 				lda			($0e), y
 				cmp			#$21
 				beq			L1b09
+
 				lda			$0a
 				and			#$df
 				sta			$0a
 				clc
 				rts
+
 L1b09:
 				lda			$0a
 				ora			#$20
@@ -1546,12 +1771,14 @@ L1b15:
 				sta			$0a
 				lda			$2d
 				bpl			L1b24
+
 				eor			#$ff
 L1b24:
 				sta			$18
 				cmp			#$01
 L1b28:
 				bcs			L1b36
+
 				lda			$05
 				ora			#$08
 				sta			$05
@@ -1561,11 +1788,13 @@ L1b28:
 L1b36:
 				lda			$2c
 				bpl			L1b3c
+
 				eor			#$ff
 L1b3c:
 				sta			$19
 				cmp			#$01
 				bcs			L1b4e
+
 				lda			$05
 				ora			#$10
 				sta			$05
@@ -1578,15 +1807,18 @@ L1b4e:
 				adc			$19
 				cmp			#$04
 				bcs			L1b5e
+
 				lda			$3e
-				ora			#$80
+				ora			#$80										; Set D7
 				sta			$3e
 				rts
+
 L1b5e:
 				lda			$3e
-				and			#$7f
+				and			#$7f										; Clear D7
 				sta			$3e
 				rts
+
 L1b65:
 				ldx			$2f
 				lda			#$00
@@ -1597,7 +1829,9 @@ L1b6d:
 				jsr			L1b75
 				dec			$33
 				bne			L1b6d
+
 				rts
+
 L1b75:
 				ldy			$32
 				ldx			#$00
@@ -1608,14 +1842,19 @@ L1b79:
 				inx
 				cpx			#$08
 				bne			L1b79
+
 				lda			#$00
 				sta			$05
 				jsr			L1bab
 				bit			$05
+
 				bvc			L1b94
+
 				bit			$09
 				bmi			L1b94
+
 				rts
+
 L1b94:
 				ldy			$32
 L1b96:
@@ -1627,19 +1866,24 @@ L1b98:
 				inx
 				cpx			#$08
 				bne			L1b98
+
 				lda			$32
 				clc
 				adc			#$08
 				sta			$32
 				rts
+
 L1bab:
 				jsr			L1ad1
 				bcs			L1bb6
+
 				dec			$0c
 				dec			$0c
 				bmi			L1bb7
+
 L1bb6:
 				rts
+
 L1bb7:
 				lda			$0a
 				and			#$0f
@@ -1648,6 +1892,7 @@ L1bb7:
 				and			#$0f
 				cmp			#$0f
 				bne			L1bcd
+
 				dec			$0c
 				dec			$0c
 				dec			$0c
@@ -1655,29 +1900,37 @@ L1bb7:
 L1bcd:
 				bit			$0a
 				bmi			L1bdd
+
 				lda			$0c
 				bmi			L1bd9
+
 				cmp			#$02
 				bcs			L1bdd
+
 L1bd9:
 				lda			#$02
 				sta			$0c
 L1bdd:
 				bit			$0a
 				bvc			L1be4
+
 				jsr			L19f8
 L1be4:
 				jsr			L18c7
 				rts
+
 L1be8:
 				lda			$3e
 				and			#$10
 				beq			L1c05
+
 				bit			$3e
 				bvc			L1c56
+
 				lda			$3e
 				and			#$20
 				bne			L1c56
+
 				lda			#$01
 				sta			$80
 				jsr			L2884
@@ -1685,8 +1938,10 @@ L1bff:
 				lda			$b8
 				cmp			#$0f
 				bcs			L1c06
+
 L1c05:
 				rts
+
 L1c06:
 				ldy			#$00
 				sty			$b8
@@ -1732,12 +1987,15 @@ L1c56:
 				lda			$3e
 				and			#$20
 				beq			L1c91
+
 				dec			$6b
 				bpl			L1c91
+
 				lda			#$58
 				sta			$6b
 				jsr			L2a3e
 				bcs			L1c91
+
 				jsr			L2a6a
 				jsr			L2a7e
 				lda			$b4
@@ -1748,6 +2006,7 @@ L1c56:
 				jsr			L2970
 				jsr			L2a1e
 				bcs			L1c91
+
 				lda			#$00
 				sta			$b8
 				sta			$b3
@@ -1757,52 +2016,64 @@ L1c56:
 				sta			$3e
 L1c91:
 				rts
+
 L1c92:
 				jsr			L1c99
 				jsr			L1cbd
 				rts
+
 L1c99:
 				lda			L0252
 				and			#$20
 				bne			L1ca8
+
 				lda			#$50
 				sta			$32
 				jsr			L1b75
 				rts
+
 L1ca8:
 				lda			$6a
 				and			#$01
 				beq			L1cbc
+
 				lda			#$0c
 				sec
 				sbc			$76
 				bpl			L1cb7
+
 				lda			#$00
 L1cb7:
 				sta			$0a
 				jsr			L1be8
 L1cbc:
 				rts
+
 L1cbd:
 				lda			L0262
 				and			#$20
 				bne			L1cd3
+
 				lda			#$60
 				sta			$32
 				jsr			L1b75
 				bit			$05
 				bpl			L1cd2
+
 				jsr			L1ced
 L1cd2:
 				rts
+
 L1cd3:
 				lda			$6a
 				and			#$01
 				bne			L1cd2
+
 				lda			#$0b
 				sec
 				sbc			$76
 				bpl			L1ce2
+
 				lda			#$00
 L1ce2:
 				sta			$0a
@@ -1810,21 +2081,27 @@ L1ce2:
 				lda			#$03
 				sta			L0100
 				rts
+
 L1ced:
 				lda			L025b
 				bne			L1d64
+
 				lda			$05
 				and			#$18
 				beq			L1d65
+
 				bit			$3e
 				bmi			L1d65
-				jsr			L2e39
+
+				jsr			GETPRNG									; Kick PRNG
 				and			#$40
 				beq			L1d0b
+
 				lda			$85
 				and			#$0f
 				cmp			#$0f
 				bne			L1d65
+
 L1d0b:
 				lda			$0e
 				clc
@@ -1840,11 +2117,13 @@ L1d0b:
 				lda			($66), y
 				cmp			#$20
 				bne			L1d64
+
 				inx
 				ldy			L32dd, x
 				lda			($66), y
 				cmp			#$20
 				bne			L1d64
+
 				tya
 				clc
 				adc			$66
@@ -1857,10 +2136,11 @@ L1d0b:
 				and			#$18
 				ora			#$60
 				sta			$09
-				ldx			$c3
+				ldx			LEVEL
 				lda			#$01
 				cpx			#$04
 				bcs			L1d50
+
 				lda			L32e5, x
 L1d50:
 				ora			#$80
@@ -1877,22 +2157,28 @@ L1d64:
 L1d65:
 				bit			L0100
 				bmi			L1d64
+
 				dec			L0100
 				jmp			L1d0b
+
 L1d70:
 				ldx			$2f
 				cpx			$b1
 				bcs			L1d90
+
 				lda			$3e
 				and			#$10
 				bne			L1d82
+
 				jsr			L2884
 				jsr			L249c
 L1d82:
 				lda			$2f
 				beq			L1d93
+
 				cmp			$b1
 				beq			L1d90
+
 				bcc			L1d90
 				lda			$b1
 				sta			$2f
@@ -1901,45 +2187,55 @@ L1d90:
 L1d93:
 				dec			$68
 				bmi			L1d98
+
 				rts
+
 L1d98:
 				lda			#$01
 				sta			$68
 L1d9c:
 				bit			$30
 				bpl			L1d9c
+
 				lda			$30
 				and			#$7f
 				sta			$30
 				rts
+
 L1da7:
 				ldx			L025b
 				beq			L1db1
+
 				lda			#$70
 				jsr			L1b69
 L1db1:
 				rts
+
 L1db2:
-				lda			$1c
+				lda			SPR1H
 				beq			L1dfe
+
 				jsr			L1dd2
 				bcc			L1dbd
-				sta			$1c
+				sta			SPR1H
 L1dbd:
 				rts
+
 L1dbe:
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				asl			a
 				asl			a
 				sta			$00
-				lda			$1d
+				lda			SPR1V
 				sta			$01
 				jsr			L1dd8
 				bcc			L1dd1
-				sta			$1d
+
+				sta			SPR1V
 L1dd1:
 				rts
+
 L1dd2:
 				sta			$01
 				lda			#$00
@@ -1955,38 +2251,47 @@ L1dd8:
 L1de6:
 				cmp			$01
 				beq			L1dfe
+
 				cmp			$41
 				beq			L1dfe
+
 				cmp			$42
 				beq			L1dfe
+
 				lda			#$18
 				clc
 				adc			$00
 				sta			$00
 				dex
 				bne			L1de6
+
 				clc
 				rts
+
 L1dfe:
 				lda			$00
 L1e00:
 				sec
 				rts
+
 L1e02:
 				lda			$31
 				beq			L1e07
 				rts
+
 L1e07:
 				lda			$34
 				and			#$10
 				bne			L1e0e
+
 				rts
+
 L1e0e:
 				lda			#$0c
 				sta			$a4
 				lda			#$01
 				sta			$31
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				tax
 				asl			a
@@ -1996,28 +2301,28 @@ L1e1e:
 				asl			a
 				ora			#$40
 				sta			$00
-				lda			$1a
+				lda			SPRVAL
 				and			#$0f
 				ora			$00
-				sta			$1a
+				sta			SPRVAL
 				lda			L3305, x
 				sta			$24
 				lda			L3309, x
 				sta			$25
-				lda			$1c
-				sta			$22
-				lda			$1d
-				sta			$23
+				lda			SPR1H
+				sta			SPR2H
+				lda			SPR1V
+				sta			SPR2V
 				rts
 L1e3e:
-				lda			$1d
+				lda			SPR1V
 				sta			$18
-				lda			$1c
+				lda			SPR1H
 				jmp			L1e4d
 L1e47:
-				lda			$23
+				lda			SPR2V
 				sta			$18
-				lda			$22
+				lda			SPR2H
 L1e4d:
 				clc
 				tax
@@ -2030,6 +2335,7 @@ L1e4d:
 				and			#$07
 				cmp			#$04
 				bcc			L1e5f
+
 				inc			$66
 L1e5f:
 				lda			$18
@@ -2048,12 +2354,14 @@ L1e5f:
 				and			#$03
 				ora			#$40
 				sta			$67
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L1e92
+
 				lda			$18
 				cmp			#$d8
 				bcc			L1e92
+
 				lda			$66
 				and			#$7f
 				sta			$66
@@ -2061,70 +2369,87 @@ L1e5f:
 				sta			$67
 L1e92:
 				rts
+
 L1e93:
 				lda			$1e
 				beq			L1ea2
+
 				clc
-				adc			$1c
+				adc			SPR1H
 				adc			#$00
 				jsr			L1eda
-				sta			$1c
+				sta			SPR1H
 				rts
+
 L1ea2:
 				lda			$1f
 				bne			L1ea7
+
 				rts
+
 L1ea7:
 				clc
-				adc			$1d
+				adc			SPR1V
 				adc			#$00
 				jsr			L1ed0
-				sta			$1d
+				sta			SPR1V
 				rts
 L1eb2:
 				lda			$24
 				beq			L1ec0
+
 				clc
-				adc			$22
+				adc			SPR2H
 				adc			#$00
 				jsr			L1f10
-				sta			$22
+				sta			SPR2H
 L1ec0:
 				lda			$25
 				bne			L1ec5
+
 				rts
+
 L1ec5:
 				clc
-				adc			$23
+				adc			SPR2V
 				adc			#$00
 				jsr			L1efb
-				sta			$23
+				sta			SPR2V
 				rts
 L1ed0:
 				sta			$00
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L1ee9
+
 				lda			$00
 L1eda:
 				cmp			#$fc
 				bcs			L1ee3
+
 				cmp			#$d8
 				bcs			L1ee6
+
 				rts
+
 L1ee3:
 				lda			#$00
 				rts
+
 L1ee6:
 				lda			#$d8
 				rts
+
 L1ee9:
 				lda			$00
 				cmp			#$10
 				bcc			L1ef4
+
 				cmp			#$e8
 				bcs			L1ef8
+
 				rts
+
 L1ef4:
 				lda			#$10
 				sec
@@ -2134,28 +2459,35 @@ L1ef8:
 				rts
 L1efb:
 				sta			$00
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L1f0e
+
 				lda			$00
 				cmp			#$10
 				bcc			L1f19
+
 				cmp			#$ec
 				bcs			L1f19
+
 				rts
+
 L1f0e:
 				lda			$00
 L1f10:
 				cmp			#$fe
 				bcs			L1f19
+
 				cmp			#$dc
 				bcs			L1f19
+
 				rts
+
 L1f19:
 				sta			$00
-				lda			$1a
+				lda			SPRVAL
 				ora			#$f0
-				sta			$1a
+				sta			SPRVAL
 				lda			#$00
 				sta			$31
 				lda			$00
@@ -2164,94 +2496,112 @@ L1f28:
 				lda			#$50
 				jsr			L2269
 				lda			#$00
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				jsr			L1f9f
 				lda			#$ee
-				sta			$5100
-				lda			$1a
+				sta			MOBLAT
+				lda			SPRVAL
 				and			#$02
 				bne			L1f4a
-				lda			$1c
+
+				lda			SPR1H
 				clc
 				adc			#$08
-				sta			$1c
+				sta			SPR1H
 				jmp			L1f51
+
 L1f4a:
-				lda			$1d
+				lda			SPR1V
 				clc
 				adc			#$08
-				sta			$1d
+				sta			SPR1V
+
+				;; Animate explosion
 L1f51:
-				lda			$1a
-				ora			#$0f
-				sta			$1a
-				lda			$a7
-				ora			#$20									; Set bit 5
-				sta			$a7
-				lda			#$f8
+				lda			SPRVAL
+				ora			#$0f										; Clear MOB 1 
+				sta			SPRVAL
+				lda			STATUS
+				ora			#$20										; Set bit 5 (Crash?)
+				sta			STATUS
+				lda			#$f8										; Init explosion sprite 
 				sta			$61
 L1f61:
-				sta			$5100
+				sta			MOBLAT
+
+				;; Delay loop -- why $3f and $40?
 				lda			#$30
 				sta			$40
 L1f68:
 				dec			$3f
 				bne			L1f68
+
 				dec			$40
 				bne			L1f68
+
 				inc			$61
 				lda			$61
 				cmp			#$fa
 				bcs			L1f7a
+
 				lda			$61
 L1f7a:
-				cmp			#$fe
-				bne			L1f61
+				cmp			#$fe										; End explosion sprite 
+				bne			L1f61										; Loop
+
 				jsr			L2d59
 				lda			#$10
 				jsr			L2269
 				lda			$30
 				ora			#$02
 				sta			$30
-				lda			$1a
+				lda			SPRVAL
 				ora			#$f0
-				sta			$1a
-				sta			$5100
+				sta			SPRVAL
+				sta			MOBLAT
 				jsr			L2d56
-				lda			$a7
+				lda			STATUS
 				and			#$df									; Clear bit 5
-				sta			$a7
+				sta			STATUS
 				rts
+
 L1f9f:
-				bit			$a7
+				bit			STATUS
 				bpl			L1fa8
+
 				lda			#$70
-				sta			$5200								; Audio1
+				sta			AUDIO1								; Audio1
 L1fa8:
 				rts
 				lda			$31
 				bne			L1fae
+
 				rts
+
 L1fae:
 				jsr			L1e47
 				ldy			#$00
 				lda			($66), y
 				cmp			#$e8
 				beq			L1fbd
+
 				cmp			#$20
 				bne			L1fc1
+
 L1fbd:
 				jsr			L1eb2
 				rts
+
 L1fc1:
 				jsr			L1fdb
 				bcs			L1fca
+
 				lda			#$21
 				sta			($66), y
 L1fca:
-				lda			$1a
+				lda			SPRVAL
 				ora			#$f0
-				sta			$1a
+				sta			SPRVAL
 				lda			$30
 				ora			#$04
 				sta			$30
@@ -2263,13 +2613,17 @@ L1fdb:
 L1fdd:
 				cmp			L32f9, x
 				beq			L1fe7
+
 				dex
 				bpl			L1fdd
+
 				clc
 				rts
+
 L1fe7:
 				sec
 				rts
+
 L1fe9:
 				lda			#$00
 				sta			$03
@@ -2277,52 +2631,65 @@ L1fe9:
 				tax
 				and			#$20
 				bne			L200a
+
 				inc			$03
 				txa
 				and			#$40
 				bne			L200a
+
 				inc			$03
 				txa
 				and			#$04
 				bne			L200a
+
 L2002:
 				inc			$03
 				txa
 				and			#$08
 				bne			L200a
+
 				rts
+
 L200a:
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				cmp			$03
 				beq			L204a
+
 				clc
 				adc			$03
 				cmp			#$01
 				beq			L2060
+
 				cmp			#$05
 				beq			L2060
+
 				lda			$03
 				and			#$02
 				bne			L2029
+
 				jsr			L1db2
 				bcs			L202f
+
 				rts
+
 L2029:
 				jsr			L1dbe
 				bcs			L202f
+
 				rts
+
 L202f:
-				lda			$1a
+				lda			SPRVAL
 				and			#$f0
 				ora			$03
-				sta			$1a
-				lda			$1c
+				sta			SPRVAL
+				lda			SPR1H
 				and			#$f8
-				sta			$1c
-				lda			$1d
+				sta			SPR1H
+				lda			SPR1V
 				and			#$f8
-				sta			$1d
+				sta			SPR1V
 				clc
 				rol			$85
 				jsr			L209f
@@ -2330,15 +2697,19 @@ L202f:
 L204a:
 				dec			$6e
 				bmi			L204f
+
 				rts
+
 L204f:
 				inc			$6f
 				lda			$6f
 				cmp			#$08
 				bcc			L205c
+
 				lda			#$07
 				sta			$6f
 				rts
+
 L205c:
 				jsr			L209a
 				rts
@@ -2347,13 +2718,17 @@ L2060:
 				dec			$6e
 				dec			$6e
 				bmi			L2069
+
 				rts
+
 L2069:
 				dec			$6f
 				bmi			L2073
+
 				lda			$6f
 				cmp			#$04
 				bcs			L2096
+
 L2073:
 				lda			#$03
 				sta			$6f
@@ -2363,14 +2738,14 @@ L2073:
 				lda			$1e
 				eor			#$ff
 				sta			$1e
-				lda			$1a
+				lda			SPRVAL
 				eor			#$01
 				and			#$03
 				sta			$00
-				lda			$1a
+				lda			SPRVAL
 				and			#$f0
 				ora			$00
-				sta			$1a
+				sta			SPRVAL
 				sec
 				rol			$85
 L2096:
@@ -2379,7 +2754,9 @@ L2096:
 L209a:
 				bit			$20
 				bpl			L209f
+
 				rts
+
 L209f:
 				ldx			$6f
 				lda			L330d, x
@@ -2392,29 +2769,34 @@ L209f:
 				sta			$1f
 				sta			$1e
 				sta			$21
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				tax
 				lda			L3325, x
 				eor			$00
 				cpx			#$02
 				bcs			L20c9
+
 				sta			$1f
 				rts
+
 L20c9:
 				sta			$1e
 				rts
+
 L20cc:
 				dec			$21
 				bmi			L20d1
+
 				rts
+
 L20d1:
 				lda			$20
 				and			#$7f
 				sta			$21
-				lda			$1c
+				lda			SPR1H
 				sta			$b7
-				lda			$1d
+				lda			SPR1V
 				sta			$b6
 				jsr			L1e93
 				jsr			L1e3e
@@ -2423,47 +2805,60 @@ L20d1:
 				sta			$48
 				cmp			#$20
 				beq			L2148
+
 				cmp			#$21
 				beq			L2148
+
 				cmp			#$e8
 				beq			L2151
+
 				jsr			L1fdb
 				bcs			L2111
+
 				lda			$48
 				and			#$1f
 				beq			L2148
+
 				cmp			#$09
 				beq			L2148
+
 				cmp			#$11
 				beq			L2148
+
 				cmp			#$18
 				beq			L2148
+
 				jmp			L1f28
+
 L2111:
 				lda			#$80
 				sta			$20
-				lda			$1a
+				lda			SPRVAL
 				and			#$03
 				cmp			#$02
 				bne			L2129
+
 				lda			$b7
 				and			#$f8
 				clc
 				adc			#$08
-				sta			$1c
+				sta			SPR1H
 				jmp			L213d
+
 L2129:
 				lda			$b7
 				bit			$1e
 				beq			L2133
+
 				and			#$f8
-				sta			$1c
+				sta			SPR1H
 L2133:
 				lda			$b6
 				bit			$1f
 				beq			L213d
+
 				and			#$f8
-				sta			$1d
+				sta			SPR1V
 L213d:
 				lda			#$00
 				sta			$1e
@@ -2484,52 +2879,62 @@ L2151:
 L215a:
 				lda			$1b
 				beq			L2183
+
 				cmp			#$60
 				bcc			L2166
+
 				cmp			#$80
 				bcc			L2183
+
 L2166:
-				lda			$bf
+				lda			PNUM
 				tay
 				bit			$1b
 				bmi			L2174
+
 				bvs			L2174
-				lda			$c3
+
+				lda			LEVEL
 				jmp			L2177
+
 L2174:
 				jsr			L219c
 L2177:
 				sta			$00
-				lda			$bf
-				and			#$02
+				lda			PNUM
+				and			#$02										; P1=0, P2=2 
 				tay
 				lda			$00
-				jsr			L227e
+				jsr			L227e										; Add to player score & update
+				
 L2183:
 				lda			#$00
 				sta			$1b
 				lda			$70
 				beq			L219b
-				lda			$bf
+
+				lda			PNUM
 				and			#$02
 				tay
 				lda			#$02
-				jsr			L227e
+				jsr			L227e										; Add to player score & update
 				lda			#$00
 				sta			$70
 				dec			$74
 L219b:
 				rts
+
 L219c:
 				stx			$01
 				lda			$b1
 				bne			L21a8
-				lda			$a7
+
+				lda			STATUS
 				ora			#$10
-				sta			$a7
+				sta			STATUS
 L21a8:
 				lda			#$00
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				sta			L0254
 				sta			L0264
 				lda			L0256
@@ -2539,11 +2944,12 @@ L21a8:
 				lda			#$01
 				bit			$1b
 				bvs			L21d5
+
 				lda			L0266
 				sta			$0e
 				lda			L0267
 				sta			$0f
-				jsr			L2e39
+				jsr			GETPRNG									; Kick PRNG
 				and			#$03
 				clc
 				adc			#$02
@@ -2552,9 +2958,10 @@ L21d5:
 				sta			$00
 				lda			($0e), y
 				sta			L0110, y
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L2201
+
 				lda			#$30
 				sta			($0e), y
 				iny
@@ -2604,37 +3011,51 @@ L2237:
 				sta			($0e), y
 				iny
 				rts
+
 L223e:
 				jsr			L2241
 L2241:
 				ldx			#$00
-				bit			$a7
-				bpl			L224c
+				bit			STATUS
+
+				bpl			L224c										; Not in game? 
+
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 L224c:
 				lda			L33d2, x
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
+
+				;; Short delay (~2/3 frame)
 				lda			#$03
-				sta			$17
+				sta			DELH
 L2256:
-				dec			$16
+				dec			DELL
 				bne			L2256
-				dec			$17
+
+				dec			DELH
 				bpl			L2256
+
 				inx
 				cpx			#$09
-				bcc			L224c
+				bcc			L224c										; Loop 
+
 				rts
+
+
+				;; Clear AUDIO1 bits
 L2264:
-				and			$a3
+				and			AUD1
 				jmp			L226b
+
+				;; Set AUDIO1 bits
 L2269:
-				ora			$a3
+				ora			AUD1
 L226b:
-				sta			$a3
-				sta			$5200										; Audio1
+				sta			AUD1
+				sta			AUDIO1									; Audio1
 				rts
+
 
 				;; Draw HI SCR
 L2271:
@@ -2645,98 +3066,104 @@ L2271:
 				ldy			#$04
 				jmp			L2292
 
+
+				;; Add a to player score and update
 L227e:
 				sed
 				clc
-				adc			$bd
-				sta			$bd
-				lda			$be
+				adc			SCOREP
+				sta			SCOREP
+				lda			SCOREP+1
 				adc			#$00
-				sta			$be
+				sta			SCOREP+1
 				cld
 				tya
 				pha
-				jsr			L22d5
+				jsr			L22d5										; Draw player score 
 				pla
 				tay
 
 L2292:
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L22ae
 
-				lda			L3f7d, y
-				sta			$50									; Screen loc lo
+				lda			L3f7d, y								; Normal location 
+				sta			$50											; Screen loc lo
 				iny
-				lda			L3f7d, y
-				sta			$51									; Screen loc hi
+				lda			L3f7d, y								; Normal location 
+				sta			$51											; Screen loc hi
 
-				ldy			#$04									; 4(+1) digits
+				ldy			#$04										; 4(+1) digits
 L22a5:
 				lda			L0110, y
 				sta			($50), y
 				dey
 				bpl			L22a5
+
 				rts
 
+				;; Set ($50-51) for cocktail
 L22ae:
-				lda			L3f83, y
-				sta			$50
+				lda			L3f83, y								; Flip location 
+				sta			$50											; Screen loc lo 
 				iny
-				lda			L3f83, y
-				sta			$51
+				lda			L3f83, y								; Flip location 
+				sta			$51											; Screen loc hi 
 				ldx			#$00
-				ldy			#$04
+				ldy			#$04										; 4(+1) digits 
 L22bd:
 				lda			L0110, x
 				sta			($50), y
 				inx
 				dey
 				bpl			L22bd
+
 				dec			$50
 				rts
 
 				;; Draw high score
 L22c9:
-				lda			$af									; High score hi
+				lda			SCOREH+1								; High score hi
 				ldy			#$00
-				jsr			L22e7								; BCD to chars
-				lda			$ae									; High score low
-				jmp			L22de								; BCD + 0 to chars
+				jsr			L22e7										; BCD to chars
+				lda			SCOREH									; High score low
+				jmp			L22de										; BCD + 0 to chars
 
 
+				;; Draw player score
 L22d5:
-				lda			$be									; ?? hi
+				lda			SCOREP+1								; Player score hi
 				ldy			#$00
-				jsr			L22e7								; BCD to chars
-				lda			$bd									; ?? lo
+				jsr			L22e7										; BCD to chars
+				lda			SCOREP									; Player score lo
 
 				; BCD + 0 to char buffer
 L22de:
-				jsr			L22e7								; BCD to char buffer
+				jsr			L22e7										; BCD to char buffer
 				lda			#$30
-				sta			L0110, y							; Add zero
+				sta			L0110, y								; Add zero
 				rts
 
 				;; BCD to char buffer
 L22e7:
-				jsr			L2e16								; Split nybbles
-				ora			#$30									; BCD to char
-				sta			L0110, y							; Store Hi char
-				lda			$52									; Lo nybble
-				ora			#$30									; BCD to char
+				jsr			L2e16										; Split nybbles
+				ora			#$30										; BCD to char
+				sta			L0110, y								; Store Hi char
+				lda			$52											; Lo nybble
+				ora			#$30										; BCD to char
 				iny
-				sta			L0110, y							; Store Lo char
+				sta			L0110, y								; Store Lo char
 				iny
 				rts
 
 				;; Draw player scores
 L22f9:
-				jsr			L230e								; P1 score to chars
-				ldy			#$00									; Loc 0
+				jsr			L230e										; P1 score to chars
+				ldy			#$00										; Loc 0
 				jsr			L2292
-				jsr			L2309								; P2 score to chars
-				ldy			#$02									; Loc 2
+				jsr			L2309										; P2 score to chars
+				ldy			#$02										; Loc 2
 				jmp			L2292
 				;; And rts
 
@@ -2749,10 +3176,10 @@ L2309:
 L230e:
 				ldx			#$00
 L2310:
-				lda			$d2, x
+				lda			P1SCRH, x
 				ldy			#$00
 				jsr			L22e7								; BCD to char buffer
-				lda			$d0, x
+				lda			P1SCRL, x
 				jmp			L22de								; BCD + 0 to char buffer
 
 L231c:
@@ -2767,29 +3194,34 @@ L2320:
 				sta			L0110
 				lda			#$43
 				sta			L0111
-				lda			$bf
+				lda			PNUM
 				lsr			a
 				tax
 				lda			$dc, x
 				tax
-				lda			L33c8, x
+				lda			TBIGNO, x								; Index by level 
 				tax
-				jsr			L2348
-				jsr			L2346
-				jsr			L2346
+				jsr			L2348										; Draw big # 
+				jsr			L2346										; Draw big 0 
+				jsr			L2346										; Draw big 0 
+
+				;; Draw bif 0
 L2346:
 				ldx			#$00
 L2348:
-				ldy			L333c, x
+				ldy			LBIG0, x
 				cpy			#$ff
 				beq			L235d
-				lda			$a7
+
+				lda			STATUS
 				and			#$04
 				bne			L236e
+
 				lda			$03
 				sta			($0e), y
 				inx
 				jmp			L2348
+
 L235d:
 				clc
 				lda			$0e
@@ -2815,9 +3247,9 @@ L236e:
 				inx
 				jmp			L2348
 L2389:
-				jsr			L2e25								; Clear screen
+				jsr			CLRSCN								; Clear screen
 				jsr			L240a
-				lda			$bf
+				lda			PNUM
 				lsr			a
 				tax
 				sed
@@ -2825,17 +3257,19 @@ L2389:
 				lda			$dc, x
 				cmp			#$09
 				bcs			L239f
+
 				adc			#$01
 				sta			$dc, x
 L239f:
 				clc
-				adc			$be
-				sta			$be
-				lda			$c3
+				adc			SCOREP+1								; Add bonus 
+				sta			SCOREP+1
+				lda			LEVEL 
 				cmp			#$09
 				bcs			L23ae
+
 				adc			#$01
-				sta			$c3
+				sta			LEVEL 
 L23ae:
 				cld
 				sta			$00
@@ -2843,7 +3277,7 @@ L23ae:
 				lda			$00
 				asl			a
 				tay
-				jsr			L2e78
+				jsr			L2e78										; New enemy chars from y
 				jsr			L231c
 				lda			#$11										; EXTRA POINTS
 				jsr			L2b00										; Draw language string a
@@ -2851,39 +3285,46 @@ L23ae:
 				jsr			L2b00										; Draw language string a
 				lda			#$0e										; * 10 POINTS
 				jsr			L2b00										; Draw language string a
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L23dc
-				lda			$c3
+
+				lda			LEVEL
 				ora			#$30
 				sta			$426e
 				jmp			L23e3
+
 L23dc:
-				lda			$c3
+				lda			LEVEL
 				ora			#$30
 				sta			$4191
 L23e3:
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1									; Audio1
 				jsr			L2418
 				ldx			#$2f
 L23ed:
 				jsr			L23f7
 				dex
 				bpl			L23ed
+
 				jsr			L240a
 				rts
+
 L23f7:
-				dec			$16
+				dec			DELL
 				bne			L23f7
+
 				ldy			#$07
 L23fd:
-				jsr			L2e39
+				jsr			GETPRNG									; Kick PRNG
 				sta			$49e8, y
 				sta			$4df0, y
 				dey
 				bpl			L23fd
+
 				rts
+
 L240a:
 				lda			#$ff
 				ldy			#$07
@@ -2892,7 +3333,9 @@ L240e:
 				sta			$4df0, y
 				dey
 				bpl			L240e
+
 				rts
+
 L2418:
 				jsr			L241b
 L241b:
@@ -2904,27 +3347,36 @@ L241f:
 L2424:
 				cpx			#$13
 				bcs			L2433
+
 				lda			L3329, x
-				sta			$5201								; Audio2
+				sta			AUDIO2									; Audio2
 				inc			$3f
 				jmp			L241f
+
 L2433:
 				rts
+
 L2434:
 				lda			#$be
 				cmp			$03
 				beq			L244c
+
 				sta			$03
 				jsr			L2320
+
+				;; Delay ~3 frames
 L243f:
 				lda			#$12
-				sta			$17
+				sta			DELH
 L2443:
-				dec			$16
+				dec			DELL
 				bne			L2443
-				dec			$17
+
+				dec			DELH
 				bpl			L2443
+
 				rts
+
 L244c:
 				jsr			L231c
 				jsr			L243f
@@ -2933,9 +3385,10 @@ L244c:
 				;; Set up character ram and ??
 L2453:
 				jsr			L2d84								; Set up character RAM
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L245f
+
 				jsr			L2c78
 L245f:
 				rts
@@ -2945,29 +3398,32 @@ L2460:
 				eor			#$ff
 				and			#$08
 				bne			L246f
-				lda			$a7
+
+				lda			STATUS
 				and			#$fb
-				sta			$a7
+				sta			STATUS
 L246f:
 				rts
 L2470:
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L247b
+
 				lda			#$00
 				jmp			L247d
+
 L247b:
 				lda			#$01
 L247d:
-				sta			$5101
-				lda			$5105
+				sta			$5101										; Set input mux? 
+				lda			IN0B	
 				eor			#$ff
 				sta			$34
 				rts
 L2488:
 				lda			#$05
 				sta			$80
-				lda			$c3
+				lda			LEVEL
 				asl			a
 				clc
 				adc			#$04
@@ -2980,12 +3436,16 @@ L249c:
 				lda			$3e
 				and			#$20
 				beq			L24a3
+
 				rts
+
 L24a3:
 				lda			$b8
 				cmp			#$0f
 				bcs			L24aa
+
 				rts
+
 L24aa:
 				ldy			#$00
 				sty			$b8
@@ -2997,6 +3457,7 @@ L24aa:
 				sec
 				sbc			$76
 				bpl			L24bf
+
 				lda			#$00
 L24bf:
 				sta			$0a
@@ -3028,10 +3489,14 @@ L24ea:
 				iny
 				cpy			#$0b
 				bne			L24ea
+
 				dec			$80
 				bmi			L24fc
+
 				beq			L24fc
+
 				rts
+
 L24fc:
 				lda			$3e
 				ora			#$30
@@ -3058,13 +3523,15 @@ L2519:
 				iny
 				cpx			#$08
 				bne			L2519
+
 				rts
 
 
 				;; Attract mode / coinage screen
 L2525:
-				bit			$5100										; DIPs
+				bit			DSW											; DIPs
 				bmi			L2530
+
 				jsr			L2bb5										; Draw pence coinage
 				jmp			L2533
 
@@ -3091,30 +3558,31 @@ L2533:
 
 
 L255c:
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L2575
+
 				lda			#$e8
-				sta			$1d
+				sta			SPR1V
 				lda			#$d7
-				sta			$1c
+				sta			SPR1H
 				lda			#$f2
-				sta			$1a
+				sta			SPRVAL
 				lda			#$fe
 				sta			$1e
 				jmp			L2585
 L2575:
 				lda			#$00
-				sta			$1d
+				sta			SPR1V
 				lda			#$08
-				sta			$1c
+				sta			SPR1H
 				lda			#$f3
-				sta			$1a
+				sta			SPRVAL
 				lda			#$01
 				sta			$1e
 L2585:
-				lda			$1a
-				sta			$5100
+				lda			SPRVAL
+				sta			MOBLAT
 				rts
 
 L258b:
@@ -3124,16 +3592,20 @@ L258b:
 				lda			#$1c									; PL #2
 				jsr			L2b00								; Draw language string a
 				jsr			L22f9								; Draw player scores
-				ldy			$c1
+				ldy			LIVES
 				beq			L25bb
-				lda			$a7
+
+				lda			STATUS
 				and			#$04
 				bne			L25bc
-				lda			$bf
+
+				lda			PNUM
 				cmp			#$01
 				beq			L25b0
+
 				ldx			#$09
 				jmp			L25b2
+
 L25b0:
 				ldx			#$00
 L25b2:
@@ -3143,14 +3615,18 @@ L25b4:
 				inx
 				dey
 				bne			L25b4
+
 L25bb:
 				rts
+
 L25bc:
-				lda			$bf
+				lda			PNUM
 				cmp			#$01
 				beq			L25c7
+
 				ldx			#$00
 				jmp			L25c9
+
 L25c7:
 				ldx			#$00
 L25c9:
@@ -3160,7 +3636,9 @@ L25cb:
 				inx
 				dey
 				bne			L25cb
+
 				rts
+
 L25d3:
 				jsr			L2488
 				jsr			L255c
@@ -3180,7 +3658,7 @@ L25d3:
 				lda			#$03
 				sta			$20
 				sta			$21
-				jsr			L2e25								; Clear screen
+				jsr			CLRSCN								; Clear screen
 				jsr			L26ad
 				jsr			L2c32
 				jsr			L28de
@@ -3192,11 +3670,14 @@ L260f:
 				lda			$3e
 				and			#$10
 				beq			L2648
+
 				lda			$2f
 				cmp			#$04
 				bcs			L2648
+
 				dec			$7b
 				bne			L2648
+
 				ldx			#$00
 L2621:
 				ldy			L35ee, x
@@ -3206,8 +3687,10 @@ L2621:
 				dec			$42
 				lda			$42
 				bmi			L2635
+
 				cmp			#$02
 				bcs			L2639
+
 L2635:
 				lda			#$02
 				sta			$42
@@ -3219,6 +3702,7 @@ L2639:
 				inx
 				cpx			#$06
 				bcc			L2621
+
 L2648:
 				rts
 
@@ -3252,8 +3736,9 @@ L264e:
 
 				;; Decrement credits
 L2677:
-				lda			$a1									; Credits
+				lda			CREDIT							; Credits
 				bne			L267d
+
 				sec
 				rts
 
@@ -3261,7 +3746,7 @@ L267d:
 				sed
 				sec
 				sbc			#$01
-				sta			$a1									; Credits
+				sta			CREDIT							; Credits
 				cld
 				jsr			L26ad
 				clc
@@ -3269,21 +3754,23 @@ L267d:
 
 				;; Coin to credit
 L2689:
-				lda			$5100								; Dips
-				and			#$18									; Coins per credit
+				lda			DSW									; Dips
+				and			#$18								; Coins per credit
 				cmp			#$10
 				bne			L269b								; Add Credits
 
-				inc			$a0									; Half coins
-				lda			$a0									; Half coins
+				inc			HCOIN								; Half coins
+				lda			HCOIN								; Half coins
 				cmp			#$02
 				bcs			L269b								; Add credits
+
 				rts
 
 L269b:
-				lda			$a1									; Credits
+				lda			CREDIT							; Credits
 				cmp			#$99
 				bne			L26a2								; < 99 credits
+
 				rts
 
 				;; Add credit BCD
@@ -3291,20 +3778,20 @@ L26a2:
 				sed
 				clc
 				adc			#$01
-				sta			$a1									; Credits
+				sta			CREDIT							; Credits
 				cld
 				lda			#$00
-				sta			$a0									; Half coins
+				sta			HCOIN								; Half coins
 
 L26ad:
 				lda			#$09									; CREDITS
 				jsr			L2b00								; Draw language string a
 
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L26cb
 
-				lda			$a1									; Credits
+				lda			CREDIT							; Credits
 				jsr			L2e16								; Split nybbles
 
 				ora			#$30									; BCD to char
@@ -3317,7 +3804,7 @@ L26ad:
 
 
 L26cb:
-				lda			$a1									; Credits
+				lda			CREDIT							; Credits
 				jsr			L2e16								; Split nybbles
 				ora			#$30
 				sta			$43eb
@@ -3386,29 +3873,30 @@ L26f9:
 
 				lda			#$00
 				sta			$a2
-				bit			$5100										; DIPs
+				bit			DSW											; DIPs
 				bmi			L2758										; US/UK Coins
-				
+
 				lda			L0303
 				cmp			#$40
 				bne			L273a
 
-				lda			$5100										; DIPs
+				lda			DSW											; DIPs
 				eor			#$ff										; Invert
 				and			#$02										; Coinage
 				bne			L2737
 
-				inc			$a0											; Half coins
-				lda			$a0											; Half coins
+				inc			HCOIN										; Half coins
+				lda			HCOIN										; Half coins
 				cmp			#$02
 				bcc			L2775
+
 				lda			#$00
-				sta			$a0											; Half coins
+				sta			HCOIN										; Half coins
 L2737:
 				jmp			L2769
 
 L273a:
-				lda			$5100										; DIPs
+				lda			DSW											; DIPs
 				eor			#$ff										; Invert
 				and			#$02										;
 				bne			L274c
@@ -3431,18 +3919,19 @@ L2758:
 				bmi			L2775
 
 				;; US Coinage
-				lda			$5100								; DIPs
-				eor			#$ff									; Invert
-				and			#$18									; US Coinage
-				bne			L2769								; No display
-				
-				jsr			L2689								; Coin to credit
+				lda			DSW											; DIPs
+				eor			#$ff										; Invert
+				and			#$18										; US Coinage
+				bne			L2769										; No display
+
+				jsr			L2689										; Coin to credit
 L2769:
-				jsr			L2689								; Coin to credit
+				jsr			L2689										; Coin to credit
 				bcc			L2775
 
-				bit			$a7
+				bit			STATUS
 				bmi			L2775
+
 				jsr			L27ef
 
 				;; Stack back to ($0e-0f)
@@ -3452,55 +3941,56 @@ L2775:
 				pla
 				sta			$0e
 
-				;; Stack back tp ($14-15)
+				;; Stack back to ($14-15)
 				pla
 				sta			$15
 				pla
 				sta			$14
 
-				pla													; Pull y
+				pla															; Pull y
 				tay
-				jmp			L26ef								; End of handler
+				jmp			L26ef										; End of handler
 
 
 L2786:
 				lda			#$05
 				sta			$53
-				bit			$5101								; Control inputs
-				bpl			L27a1								; Coin 1 not pressed
+				bit			IN0											; Control inputs
+				bpl			L27a1										; Coin 1 not pressed
 
-				lda			$5100								; DIPs
-				and			#$01									; Mask Coin 2
+				lda			DSW											; DIPs
+				and			#$01										; Mask Coin 2
 				bne			L27c5
 				dec			$53
-				bne			L2786								; Loop
-				
+				bne			L2786										; Loop
+
 				lda			#$00
 				sta			L0303
 				sec
 				rts
 
 L27a1:
-				lda			#$ff									; Init counter
+				lda			#$ff										; Init counter
 				sta			$53
 
 L27a5:
-				bit			$5101								; Control inputs
-				bmi			L2786								; Coin 1
+				bit			IN0											; Control inputs
+				bmi			L2786										; Coin 1
+
 				dec			$53
 				bne			L27a5
 
 L27ae:
-				bit			$5101								; Control inputs
-				bpl			L27ae								; Loop until D7 high
+				bit			IN0											; Control inputs
+				bpl			L27ae										; Loop until D7 high
 
 				dec			$53
 L27b5:
-				bit			$5101								; Control inputs
-				bpl			L27ae								; Loop until D7 high
+				bit			IN0											; Control inputs
+				bpl			L27ae										; Loop until D7 high
 
 				dec			$53
-				bne			L27b5								; Loop until $53==0
+				bne			L27b5										; Loop until $53==0
 				
 				lda			#$40
 				sta			L0303
@@ -3512,18 +4002,18 @@ L27c5:
 				lda			#$ff
 				sta			$53
 L27c9:
-				lda			$5100
+				lda			DSW	
 				and			#$01
 				beq			L2786
 				dec			$53
 				bne			L27c9
 L27d4:
-				lda			$5100
+				lda			DSW	
 				and			#$01
 				bne			L27d4
 				dec			$53
 L27dd:
-				lda			$5100
+				lda			DSW	
 				and			#$01
 				bne			L27d4
 				dec			$53
@@ -3534,11 +4024,11 @@ L27dd:
 				rts
 L27ef:
 				lda			#$90
-				sta			$5200								; Audio1
+				sta			AUDIO1							; Audio1
 				ldx			#$00
 L27f6:
 				lda			L3624, x
-				sta			$5201								; Audio2
+				sta			AUDIO2							; Audio2
 				cmp			#$ff
 				beq			L280e
 				ldy			#$03
@@ -3551,25 +4041,25 @@ L2802:
 				jmp			L27f6
 L280e:
 				lda			#$10
-				sta			$5200								; Audio1
+				sta			AUDIO1							; Audio1
 				rts
 
 				;; Coin interrupt
 L2814:
-				lda			$a7
+				lda			STATUS
 				and			#$20
 				bne			L2833
 
-				lda			$1c
-				sta			$5000								; Sprite 1 X
-				lda			$1d
-				sta			$5040								; Sprite 1 Y
-				lda			$22
-				sta			$5080								; Sprite 2 X
-				lda			$23
-				sta			$50c0								; Sprite 2 Y
-				lda			$1a
-				sta			$5100								; Sprite #s
+				lda			SPR1H
+				sta			MOB1H								; Sprite 1 X
+				lda			SPR1V
+				sta			MOB1V								; Sprite 1 Y
+				lda			SPR2H
+				sta			MOB2H								; Sprite 2 X
+				lda			SPR2V
+				sta			MOB2V								; Sprite 2 Y
+				lda			SPRVAL
+				sta			MOBLAT								; Sprite #s
 
 L2833:
 				inc			$a2
@@ -3621,17 +4111,20 @@ L286e:
 				jsr			L22f9								; Draw player scores
 				jsr			L2271								; Draw HI SCR
 				lda			#$00
-				sta			$a7
+				sta			STATUS
 				rts
 
 L2884:
 				lda			$3e
 				and			#$20
 				bne			L288e
+
 				dec			$b3
 				bmi			L288f
+
 L288e:
 				rts
+
 L288f:
 				lda			#$05
 				sta			$b3
@@ -3639,8 +4132,10 @@ L288f:
 				inc			$b9
 				lda			$80
 				beq			L28dd
+
 				cmp			#$06
 				bcs			L28dd
+
 				sta			$86
 				lda			$b9
 				and			#$03
@@ -3676,8 +4171,10 @@ L28b7:
 				sta			($b4), y
 				dec			$86
 				bne			L28b7
+
 L28dd:
 				rts
+
 L28de:
 				ldx			$82
 				stx			$01
@@ -3699,9 +4196,11 @@ L28e6:
 				sty			$83
 				dec			$01
 				bpl			L28e6
+
 				jsr			L290e
 				jsr			L2ab5
 				rts
+
 L290e:
 				ldy			#$00
 				sty			$83
@@ -3711,6 +4210,7 @@ L2916:
 				jsr			L2968
 				jsr			L2a1e
 				bcs			L292c
+
 				lda			$94
 				eor			#$ff
 				and			#$02
@@ -3721,7 +4221,9 @@ L2916:
 L292c:
 				dec			$41
 				bpl			L2916
+
 				rts
+
 L2931:
 				lda			$94
 				asl			a
@@ -3742,10 +4244,13 @@ L2950:
 				lda			($66), y
 				cmp			#$e0
 				bcs			L2962
+
 				cmp			#$b0
 				bcc			L295e
+
 				cmp			#$b4
 				bcc			L2963
+
 L295e:
 				lda			$03
 				sta			($66), y
@@ -3773,6 +4278,7 @@ L2970:
 				sta			$67
 				iny
 				rts
+
 L2986:
 				lda			$81
 				asl			a
@@ -3786,17 +4292,21 @@ L2994:
 				sta			L0330, x
 				dex
 				bpl			L2994
+
 				ldx			#$00
 				stx			$84
 L299e:
 				jsr			L29a6
 				dec			$03
 				bpl			L299e
+
 				rts
+
 L29a6:
 				jsr			L29c0
 				jsr			L2a5c
 				bcs			L29a6
+
 				ldx			$84
 				sta			L0330, x
 				ldx			$48
@@ -3805,11 +4315,13 @@ L29a6:
 				inc			$84
 				inc			$48
 				rts
+
 L29c0:
 				jsr			L2e4c
 				and			#$7f
 				cmp			#$4f
 				bcc			L29ca
+
 				lsr			a
 L29ca:
 				clc
@@ -3825,16 +4337,16 @@ L29ce:
 L29d3:
 				ldx			#$01
 L29d5:
-				lda			$d0, x
-				sta			$bd
-				lda			$d2, x
-				sta			$be
+				lda			P1SCRL, x								; Score lo 
+				sta			SCOREP
+				lda			P1SCRH, x								; Score hi 
+				sta			SCOREP+1
 				lda			$d4, x
 				sta			$b1
 				lda			$d6, x
-				sta			$c1
-				lda			$da, x
-				sta			$c3
+				sta			LIVES
+				lda			P1LEVEL, x
+				sta			LEVEL
 				lda			$de, x
 				sta			$28
 				lda			$79, x
@@ -3852,22 +4364,22 @@ L29f6:
 L29fb:
 				ldx			#$01
 L29fd:
-				lda			$bd
-				sta			$d0, x								; $bd to $d0 or $d1
-				lda			$be
-				sta			$d2, x								; $be to $d2 or $d3
+				lda			SCOREP
+				sta			P1SCRL, x								; Score lo
+				lda			SCOREP+1
+				sta			P1SCRH, x								; Score hi
 				lda			$b1
-				sta			$d4, x								; $b1 to $d4 or $d5
-				lda			$c1
-				sta			$d6, x								; $c1 to $d6 or $d7
-				lda			$c3
-				sta			$da, x								; $c3 to $da or $db
+				sta			$d4, x									; $b1 to $d4 or $d5
+				lda			LIVES
+				sta			$d6, x									; $c1 to $d6 or $d7
+				lda			LEVEL
+				sta			P1LEVEL, x							; $c3 to $da or $db
 				lda			$28
-				sta			$de, x								; $28 to $de or $df
+				sta			$de, x									; $28 to $de or $df
 				lda			$74
-				sta			$79, x								; $74 to $79 or $7a
+				sta			$79, x									; $74 to $79 or $7a
 				lda			$76
-				sta			$77, x								; $76 to $77 or $78
+				sta			$77, x									; $76 to $77 or $78
 				rts
 
 L2a1e:
@@ -3875,13 +4387,16 @@ L2a1e:
 L2a20:
 				jsr			L2a31
 				bcs			L2a3c
+
 				dex
 				bpl			L2a20
-				jsr			L2e39
+
+				jsr			GETPRNG									; Kick PRNG
 				and			#$03
 				sta			$94
 				clc
 				rts
+
 L2a31:
 				ldy			L3608, x
 				lda			($66), y
@@ -3889,15 +4404,19 @@ L2a31:
 				bne			L2a3c
 				clc
 				rts
+
 L2a3c:
 				sec
 				rts
+
 L2a3e:
-				jsr			L2e39
+				jsr			GETPRNG									; Kick PRNG
 				cmp			#$51
 				bcs			L2a5b
+
 				jsr			L2a5c
 				bcs			L2a5b
+
 				sta			$00
 				inc			L025c
 				lda			L025c
@@ -3908,18 +4427,22 @@ L2a3e:
 				clc
 L2a5b:
 				rts
+
 L2a5c:
 				ldx			#$0f
 L2a5e:
 				cmp			L0330, x
 				beq			L2a68
+
 				dex
-				bpl			L2a5e
-				clc
+				bpl			L2a5e										; Loop 
+
+				clc															; No match 
 				rts
 L2a68:
-				sec
+				sec															; Match 
 				rts
+
 L2a6a:
 				sta			$41
 				lda			#$ff
@@ -3930,17 +4453,20 @@ L2a72:
 				sec
 				sbc			#$09
 				bpl			L2a72
+
 				adc			#$09
 				sta			$41
 				rts
+
 L2a7e:
 				lda			#$40
 				sta			$b5
 				lda			#$20
 				sta			$b4
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				beq			L2a94
+
 				lda			#$3f
 				sta			$b5
 				lda			#$e0
@@ -3955,6 +4481,7 @@ L2a94:
 				sta			$b5
 				dec			$42
 				bpl			L2a94
+
 				ldy			#$00
 L2aa7:
 				iny
@@ -3962,11 +4489,13 @@ L2aa7:
 				iny
 				dec			$41
 				bpl			L2aa7
+
 				tya
 				clc
 				adc			$b4
 				sta			$b4
 				rts
+
 L2ab5:
 				lda			$80
 				sta			$01
@@ -3977,17 +4506,21 @@ L2abf:
 				jsr			L2ac7
 				dec			$01
 				bpl			L2abf
+
 				rts
+
 L2ac7:
 				jsr			L2e4c
 				and			#$3f
 				cmp			#$2c
 				bcc			L2ad1
+
 				lsr			a
 L2ad1:
 				adc			#$12
 				jsr			L2a5c
 				bcs			L2ac7
+
 				ldx			$84
 				sta			L0330, x
 				jsr			L2a6a
@@ -4002,6 +4535,7 @@ L2ad1:
 				jsr			L2970
 				jsr			L2a1e
 				bcs			L2ac7
+
 				inc			$84
 				inc			$83
 				inc			$83
@@ -4009,34 +4543,34 @@ L2ad1:
 
 				;; Draw language string a
 L2b00:
-				asl			a										; a*2
-				asl			a										; a*4
-				tay													; y = a*4
-				lda			$5103								; Interrupt condition
-				and			#$03									; Mask language
-				asl			a										; lang << 1
-				tax													; X = lang << 1
+				asl			a												; a*2
+				asl			a												; a*4
+				tay															; y = a*4
+				lda			$5103										; Interrupt condition
+				and			#$03										; Mask language
+				asl			a												; lang << 1
+				tax															; X = lang << 1
 
 				lda			L3f01, x
-				sta			$06									; Language ptr lo
+				sta			$06											; Language ptr lo
 				inx
 				lda			L3f01, x
-				sta			$07									; Language ptr hi
+				sta			$07											; Language ptr hi
 
 				lda			($06), y
-				sta			$0e									; Screen loc lo
+				sta			$0e											; Screen loc lo
 				iny
 				lda			($06), y
-				sta			$0f									; Screen loc hi
+				sta			$0f											; Screen loc hi
 				iny
 
 				lda			($06), y
-				sta			$14									; String log lo
+				sta			$14											; String log lo
 				iny
 				lda			($06), y
-				sta			$15									; String loc hi
+				sta			$15											; String loc hi
 				
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L2b3b
 
@@ -4044,7 +4578,9 @@ L2b00:
 L2b30:
 				lda			($14), y
 				bne			L2b35
+
 				rts
+
 L2b35:
 				sta			($0e), y
 				iny
@@ -4064,7 +4600,9 @@ L2b3b:
 L2b4f:
 				lda			($14), y
 				bne			L2b54
+
 				rts
+
 L2b54:
 				ldy			#$00
 				sta			($0e), y
@@ -4077,8 +4615,9 @@ L2b54:
 L2b61:
 				lda			#$05										; DEPOSIT COIN
 				jsr			L2b00										; Draw language string a
-				lda			$a1											; Credits
+				lda			CREDIT									; Credits
 				bne			L2b6b
+
 				rts
 
 				;; Draw "OR PRESS START"
@@ -4089,14 +4628,17 @@ L2b6b:
 
 				;; Draw quarter coinage
 L2b70:
-				lda			$5100										; DIPs
+				lda			DSW											; DIPs
 				eor			#$ff										; Invert
 				and			#$18										; Mask bits
 				beq			L2b82										; 2P_1C
+
 				cmp			#$10
 				beq			L2b87										; 1P_1C
+
 				cmp			#$08
 				beq			L2b91										; 1P_2C
+
 				rts
 
 L2b82:
@@ -4119,25 +4661,25 @@ L2b91:
 
 
 L2b9b:
-				lda			$a7
-				ora			#$10									; Set bit 4
-				sta			$a7
+				lda			STATUS
+				ora			#$10										; Set bit 4
+				sta			STATUS
 
-				lda			#$10									; TOP HIGH SCORE FOR EXTRA PLAY
-				jmp			L2b00								; Draw language string a
+				lda			#$10										; TOP HIGH SCORE FOR EXTRA PLAY
+				jmp			L2b00										; Draw language string a
 
 L2ba6:
-				jsr			L2e25								; Clear screen
+				jsr			CLRSCN									; Clear screen
 				lda			#$0c
 				sta			$0e
-				lda			#$0f									; TOP HIGH SCORE FOR EXTRA PLAY
-				jsr			L2b00								; Draw language string a
+				lda			#$0f										; TOP HIGH SCORE FOR EXTRA PLAY
+				jsr			L2b00										; Draw language string a
 				jmp			L2d50
 
 
 				;; Draw pence coinage
 L2bb5:
-				lda			$5100										; DIPs
+				lda			DSW											; DIPs
 				eor			#$ff										; Invert
 				and			#$02
 				bne			L2bc8										; Full coins	
@@ -4153,37 +4695,57 @@ L2bc8:
 				lda			#$17										; 6P - 1 50p
 				jmp			L2b00										; Draw language string a
 
+
+				;; Compare player score to high score
 L2bd2:
-				lda			$be
-				cmp			$af
-				beq			L2bdb
-				bcs			L2be2
+				lda			SCOREP+1
+				cmp			SCOREH+1
+				beq			L2bdb										; Check LSB
+
+				bcs			L2be2										; Higher
+
 				rts
+
 L2bdb:
-				lda			$bd
-				cmp			$ae
-				bcs			L2be2
+				lda			SCOREP
+				cmp			SCOREH
+				bcs			L2be2										; Higher
+
 				rts
+
+				;; Copy player score to high score
 L2be2:
-				lda			$bd
-				sta			$ae
-				lda			$be
-				sta			$af
-				lda			$a7
-				and			#$fc
-				sta			$a7
-				lda			$bf
+				lda			SCOREP
+				sta			SCOREH
+				lda			SCOREP+1
+				sta			SCOREH+1
+
+				;; LSBs of status = player # for high
+				lda			STATUS
+				and			#$fc										; Clear LSBs 
+				sta			STATUS
+				lda			PNUM
 				and			#$03
-				ora			$a7
-				sta			$a7
+				ora			STATUS
+				sta			STATUS
 				rts
+
+
+				;; ($0e-0f) += 60
+L2bf9:
 				lda			#$60
 				jmp			L2c05
+
+				;; ($0e-0f) += 40
 L2bfe:
 				lda			#$40
 				jmp			L2c05
+
+				;; ($0e-0f) += 20
 L2c03:
 				lda			#$20
+
+				;; ($0e-0f) += a
 L2c05:
 				clc
 				adc			$0e
@@ -4192,11 +4754,23 @@ L2c05:
 				adc			#$00
 				sta			$0f
 				rts
+
+
+				;; ($0e-0f) -= 60
+L2c11:
 				lda			#$60
 				jmp			L2c1d
+
+				;; ($0e-0f) -= 40
+L2c16:
 				lda			#$40
 				jmp			L2c1d
+
+				;; ($0e-0f) -= 20
+L2c1b:
 				lda			#$20
+
+				;; ($0e-0f) -= a
 L2c1d:
 				sta			$00
 				sec
@@ -4207,15 +4781,20 @@ L2c1d:
 				sbc			#$00
 				sta			$0f
 				rts
+
+
 L2c2d:
 				lda			#$40
 				sta			$0f
 				rts
+
 L2c32:
-				lda			$a7
+				lda			STATUS
 				and			#$04
 				bne			L2c3b
+
 				jmp			L2cca
+
 L2c3b:
 				jsr			L2c47
 				lda			#$40
@@ -4378,32 +4957,40 @@ L2d45:
 				bne			L2d45
 				rts
 
-				;; Delay
+				;; Delay x16 (168 frames)
 L2d50:
 				jsr			L2d53
+
+				;; Delay x8 (84 frames)
 L2d53:
 				jsr			L2d56
+
+				;; Delay x4 (42 frames)
 L2d56:
 				jsr			L2d59
+
+				;; Delay x2 (21 frames)
 L2d59:
 				jsr			L2d5c
+
+				;; Delay (10-11 frames)
 L2d5c:
 				lda			#$00
-				sta			$16
-				sta			$17
+				sta			DELL
+				sta			DELH
 L2d62:
-				inc			$16
+				inc			DELL
 L2d64:
-				inc			$17
+				inc			DELH
 				lda			#$26
-				cmp			$17
-				bne			L2d64								; Loop
-				cmp			$16
-				bne			L2d62								; Loop
+				cmp			DELH
+				bne			L2d64								; Inner Loop
+				cmp			DELL
+				bne			L2d62								; Outer Loop
 				rts
 
 L2d71:
-				lda			$5100
+				lda			DSW	
 				eor			#$ff
 				and			#$60										; Mask D6,5
 				lsr			a												; a>>1
@@ -4412,8 +4999,8 @@ L2d71:
 				lsr			a												; a>>4
 				lsr			a												; a>>5
 				tax
-				lda			L3295, x
-				sta			$c1
+				lda			L3295, x								; Lives table 
+				sta			LIVES
 				rts
 
 				;; Set up character RAM
@@ -4533,6 +5120,7 @@ L2e16:
 				rts
 
 				;; Clear screen
+CLRSCN:	
 L2e25:
 				lda			#$20
 				ldx			#$00
@@ -4545,41 +5133,53 @@ L2e29:
 				bne			L2e29
 				rts
 
+				;; 
+				;; Kick PRNG, return in a
+				;; 
+GETPRNG:
 L2e39:
-				lda			$62
+				lda			PRNG
 				sta			$60
-				lda			$63
+				lda			PRNG+1
 				beq			L2e4c
+
 				cmp			#$fd
 				bcs			L2e4c
-				sta			$62
+
+				sta			PRNG
 				adc			$60
-				sta			$63
+				sta			PRNG+1
 				rts
+
 L2e4c:
 				tya
 				pha
-				ldy			#$23
+				ldy			#$23										; # Loops 
 L2e50:
-				lda			$63
+				lda			PRNG+1
 				beq			L2e61
+
 				and			#$60
 				cmp			#$20
 				beq			L2e61
+
 				cmp			#$40
 				beq			L2e61
+
 				clc
 				bcc			L2e62
+
 L2e61:
 				sec
+
 L2e62:
-				rol			$62
-				rol			$63
+				rol			PRNG
+				rol			PRNG+1
 				dey
 				bne			L2e50
 				pla
 				tay
-				lda			$62
+				lda			PRNG
 				rts
 
 				lda			#$4e
@@ -4588,45 +5188,47 @@ L2e62:
 				bne			L2e7c
 
 				ldy			#$02
+
+				;; New enemy chars from y
 L2e78:
 				lda			#$48
-				sta			$43					; ($42-43) = 48xx
+				sta			$43											; ($42-43) = 48xx
 L2e7c:
 				nop
 
 				;; Get ($40-$41) from table
 				;; Pts to enemy chars
-				lda			L314d, y
+				lda			L314d, y								; Char loc table 
 				sta			$40
 				iny
-				lda			L314d, y
+				lda			L314d, y								; Char loc table 
 				sta			$41
 				nop
 
-				jsr			L2ede				; Copy char to $ff spot, $03f0, $0ef8
+				jsr			L2ede										; Copy char to $ff spot, $03f0, $0ef8
 
 				lda			#$00
-				sta			$42					; ($42-43) = 4800
+				sta			$42											; ($42-43) = 4800
 
-				jsr			L2fb3				; $03e0-$03ef to chars
-				ldx			#$03					; 3 loops
-				stx			$86					; Loop counter
+				jsr			L2fb3										; $03e0-$03ef to chars
+				ldx			#$03										; 3 loops
+				stx			$86											; Loop counter
 L2e97:
-				jsr			L2feb				; Scroll $03e0-$03ef up twice
-				jsr			L2fb3				; $03e0-$03ef to chars
+				jsr			L2feb										; Scroll $03e0-$03ef up twice
+				jsr			L2fb3										; $03e0-$03ef to chars
 				dec			$86
-				bne			L2e97				; Loop
+				bne			L2e97										; Loop
 
-				jsr			L2ef4				; HFlip $03f0 char to $03e0
-				jsr			L2fb3				; $03e0-$03ef to chars
+				jsr			L2ef4										; HFlip $03f0 char to $03e0
+				jsr			L2fb3										; $03e0-$03ef to chars
 
-				ldx			#$03					; 3 Loops
-				stx			$86					; Loop counter
+				ldx			#$03										; 3 Loops
+				stx			$86											; Loop counter
 L2eab:
 				jsr			L3001
 				jsr			L2fb3
 				dec			$86
-				bne			L2eab				; Loop
+				bne			L2eab										; Loop
 
 				jsr			L2f02
 				jsr			L2fb3
@@ -4959,49 +5561,117 @@ L3329:
 				.db			$55, $b0, $b8, $c0			; DATA
 				.db			$c8, $d0, $d8, $e0			; DATA
 				.db			$e8, $f0, $ff						; DATA
-				
-L333c:
-				.db			$01, $02, $20, $23			; DATA
-				.db			$40, $43, $60, $63			; DATA
-				.db			$80, $83, $a1, $a2			; DATA
-				.db			$ff, $00, $01, $21			; DATA
-				.db			$41, $61, $81, $a0			; DATA
-				.db			$a1, $a2, $ff, $00			; DATA
-				.db			$01, $02, $20, $22			; DATA
-				.db			$42, $60, $61, $62			; DATA
-				.db			$80, $a0, $a1, $a2			; DATA
-				.db			$ff, $00, $01, $02			; DATA
-				.db			$22, $41, $42, $62			; DATA
-				.db			$82, $a0, $a1, $a2			; DATA
-				.db			$ff, $02, $20, $22			; DATA
-				.db			$40, $42, $60, $61			; DATA
-				.db			$62, $63, $82, $a1			; DATA
-				.db			$a2, $a3, $ff, $00			; DATA
-				.db			$01, $02, $20, $40			; DATA
-				.db			$41, $42, $43, $63			; DATA
-				.db			$83, $a0, $a1, $a2			; DATA
-				.db			$a3, $ff, $00, $01			; DATA
-				.db			$02, $20, $40, $60			; DATA
-				.db			$61, $62, $63, $80			; DATA
-				.db			$83, $a0, $a1, $a2			; DATA
-				.db			$a3, $ff, $00, $01			; DATA
-				.db			$02, $03, $23, $42			; DATA
-				.db			$43, $61, $62, $81			; DATA
-				.db			$a1, $ff, $01, $02			; DATA
-				.db			$03, $21, $23, $40			; DATA
-				.db			$41, $42, $43, $60			; DATA
-				.db			$63, $80, $83, $a0			; DATA
-				.db			$a1, $a2, $a3, $ff			; DATA
-				.db			$00, $01, $02, $03			; DATA
-				.db			$20, $23, $40, $41			; DATA
-				.db			$42, $43, $63, $83			; DATA
-				.db			$a1, $a2, $a3, $ff			; DATA
-	
-L33c8:
-				.db			$00, $0d, $17, $25			;
-				.db			$31, $3f, $4e, $5e			;
-				.db			$6a, $7c								; 
 
+				;; 
+				;; Big numbers for bonus
+				;; 
+LBIG0:	
+L333c:
+				.db			     $01, $02
+				.db			$20,           $23
+				.db			$40,           $43
+				.db			$60,           $63
+				.db			$80,           $83
+				.db			     $a1, $a2
+				.db			$ff
+				
+LBIG1:
+				.db		  $00, $01
+				.db			     $21
+				.db			     $41
+				.db			     $61
+				.db			     $81
+				.db			$a0, $a1, $a2
+				.db			$ff
+
+LBIG2:
+				.db			$00, $01, $02
+				.db			$20,      $22
+				.db			          $42
+				.db			$60, $61, $62
+				.db			$80
+				.db			$a0, $a1, $a2
+				.db			$ff
+
+LBIG3:				
+				.db			$00, $01, $02
+				.db			          $22
+				.db			     $41, $42
+				.db			          $62
+				.db			          $82
+				.db			$a0, $a1, $a2
+				.db			$ff
+
+LBIG4:
+				.db			          $02
+				.db			$20,      $22
+				.db			$40,      $42
+				.db			$60, $61, $62, $63
+				.db			          $82
+				.db			     $a1, $a2, $a3
+				.db			$ff
+
+LBIG5:
+				.db			$00, $01, $02
+				.db			$20
+				.db			$40
+				.db			$41, $42, $43
+				.db			          $63
+				.db			          $83
+				.db			$a0, $a1, $a2, $a3
+				.db			$ff
+			
+LBIG6:				
+				.db			$00, $01, $02
+				.db			$20
+				.db			$40
+				.db			$60, $61, $62, $63
+				.db			$80,           $83
+				.db			$a0, $a1, $a2, $a3
+				.db			$ff
+			
+LBIG7:				
+				.db			$00, $01, $02, $03
+				.db			               $23
+				.db			          $42, $43
+				.db			     $61, $62
+				.db			$81
+				.db			$a1
+				.db			$ff
+
+LBIG8:
+				.db			     $01, $02, $03
+				.db			     $21,      $23
+				.db			$40, $41, $42, $43
+				.db			$60,           $63
+				.db			$80,           $83
+				.db			$a0, $a1, $a2, $a3
+				.db			$ff
+
+LBIG9:				
+				.db			$00, $01, $02, $03
+				.db			$20,           $23
+				.db			$40, $41, $42, $43
+				.DB			               $63
+				.DB			               $83
+				.db			     $a1, $a2, $a3
+				.DB			$ff
+
+TBIGNO:	
+L33c8:
+				.db			LBIG0-LBIG0
+				.db			LBIG1-LBIG0
+				.db			LBIG2-LBIG0
+				.db			LBIG3-LBIG0
+				.db			LBIG4-LBIG0
+				.db			LBIG5-LBIG0
+				.db			LBIG6-LBIG0
+				.db			LBIG7-LBIG0
+				.db			LBIG8-LBIG0
+				.db			LBIG9-LBIG0
+
+
+				;; Tone sequence (9 entries)
 L33d2:
 				.db			$b8, $c0, $c8, $d0			; 
 				.db			$d8, $e0, $e8, $f0			;
@@ -5012,14 +5682,15 @@ L33db:
 				.db			$20, $04, $40, $08			;
 				.db			$40, $04, $20, $08			;
 
-				;; Table (audio)
+				;; Table (notes)
 L33e3:
 				.db			$c0, $c8, $d0, $d8			; 
 				.db			$e0, $e8, $f0, $ff			; 
 				.db			$c0, $c8, $d0, $d8			; 
 				.db			$e0, $e8, $ff, $f0			; 
 				.db			$ff, $f0, $ff						; 
-				
+
+				;; Table (duration)
 L33f6:
 				.db			$03, $03, $03, $03			; 
 				.db			$03, $03, $03, $03			; 
