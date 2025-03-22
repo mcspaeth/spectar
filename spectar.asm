@@ -2,11 +2,20 @@
 				;; $000e-000f		= Screen loc pointer
 				;; $0014-0015		= String loc pointer
 
+LANGPTR	= $0006									; (2 bytes) Ptr to language table
+
+SCRLOC	= $000e									; (2 bytes) Screen location
+
+STRLOC	= $0014									; (2 bytes) String location
+
 DELL		= $0016									; Delay counter
 DELH		= $0017									; Delay counter
+
 SPRVAL	= $001a									; MOB 2,1 values
+
 SPR1H		= $001c									; MOB1 X
 SPR1V		= $001d									; MOB1 Y
+
 SPR2H		= $0022									; MOB2 X
 SPR2V		= $0023									; MOB2 Y
 
@@ -63,6 +72,8 @@ L0264		= $0264									; ??
 L0266		= $0266									; ??
 L0267		= $0267									; ??
 
+				;; $0270 area has to do with enemy bullets
+				
 L0303		= $0303									; ??
 L0316		= $0316									; ??
 L0317		= $0317									; ??
@@ -114,6 +125,7 @@ L1011:
 				sta			STATUS
 
 				;; Write interupt vector
+				;; For test fixture?
 				ldx			#$00
 				lda			L3fa9, x
 				sta			$fffe
@@ -166,14 +178,14 @@ L105a:
 				sta			$76
 				lda			#$01
 				sta			PNUM
-				sta			LEVEL									; Level 
+				sta			LEVEL										; Level 
 				lda			#$24
 				sta			$74
-				jsr			L2d71
+				jsr			L2d71										; Set LIVES from DIPs 
 				lda			#$0a
 				sta			$b1
-				jsr			L29f6								; Init P1 values (?)
-				jsr			L29fb								; Init P2 values (?)
+				jsr			L29f6										; Init P1 values (?)
+				jsr			L29fb										; Init P2 values (?)
 				jsr			L14a5
 				jsr			L258b
 L108f:
@@ -310,16 +322,18 @@ L1188:
 
 				lda			#$4b
 				sta			$43
-				ldy			#$16
-				jsr			L2e7c
+				ldy			#$16										; (Missiles) 
+				jsr			L2e7c										; New enemy chars from y ($60-7f)
+				
 				lda			#$4c
 				sta			$43
-				ldy			#$12
-				jsr			L2e7c
+				ldy			#$12										; (Killer a)
+				jsr			L2e7c										; New enemy chars from y ($80-9f)
+				
 				lda			#$4e
 				sta			$43
-				ldy			#$14
-				jsr			L2e7c
+				ldy			#$14										; (Killer b) 
+				jsr			L2e7c										; New enemy chars from y ($c0-df)
 
 				;; Copy custom per-level maze chars
 				lda			$76											; Current level?
@@ -469,16 +483,16 @@ L127e:
 
 L1290:
 				lda			STATUS
-				and			#$fb
+				and			#$fb										; Clear FLIP 
 				sta			STATUS
 				jsr			L2453										; Write character ram and ??
-				jsr			L2ba6
+				jsr			L2ba6										; TOP HIGH...
 				jmp			L157e										; Go to attracr mode
 
 L129f:
-				lda			DSW	
+				lda			DSW
 				eor			#$ff
-				and			#$04
+				and			#$04										; High score award 
 				bne			L1307
 
 				bit			STATUS
@@ -486,20 +500,20 @@ L129f:
 
 				jsr			CLRSCN									; Clear screen
 				lda			STATUS
-				and			#$03
-				sta			PNUM
-				beq			L1290
+				and			#$03										; Mask D1,0
+				sta			PNUM										; Player w/ high score
+				beq			L1290										; (none)
 
 				lda			PNUM
 				and			#$02
 				asl			a
-				and			#$04
+				and			#$04										; P1 = #$00, P2 = #$04
 				sta			$00
 				lda			STATUS
-				and			#$fb
-				ora			$00
+				and			#$fb										; Clear D2 = Flip
+				ora			$00											; Set flip for P2
 				sta			STATUS
-				jsr			L2460
+				jsr			L2460										; Check TABLE 
 				jsr			L2453										; Write characte ram and ??
 				ldy			#$00
 				lda			#$12										; EXTENDED PLAY FOR PLAYER _
@@ -552,6 +566,8 @@ L1315:
 				jsr			L27ef
 				jsr			L2d53
 				jmp			L1290
+
+
 L132f:
 				lda			#$10
 				jsr			L2269
@@ -594,9 +610,9 @@ L1371:
 				lda			#$02
 				sta			PNUM
 				lda			STATUS
-				ora			#$04										; Set flip?
+				ora			#$04										; Set flip
 				sta			STATUS
-				jsr			L2460
+				jsr			L2460										; Check TABLE 
 				jsr			L29f6										; Init P1 values (?)
 				jsr			L29d3
 				jmp			L138a
@@ -3382,28 +3398,37 @@ L244c:
 				jsr			L243f
 				rts
 
+
+				;; 
 				;; Set up character ram and ??
+				;; 
 L2453:
-				jsr			L2d84								; Set up character RAM
+				jsr			L2d84										; Set up character RAM
 				lda			STATUS
 				and			#$04
 				beq			L245f
 
-				jsr			L2c78
+				jsr			L2c78										; Flip chars $00-7f 
 L245f:
 				rts
 
+
+				;;
+				;; Check TABLE
+				;; 
 L2460:
-				lda			$5103								; Interrupt condition
+				lda			$5103										; Interrupt condition
 				eor			#$ff
-				and			#$08
-				bne			L246f
+				and			#$08										; Check Table DIP 
+				bne			L246f										; (keep flip) 
 
 				lda			STATUS
-				and			#$fb
+				and			#$fb										; Clear flip 
 				sta			STATUS
 L246f:
 				rts
+
+
 L2470:
 				lda			STATUS
 				and			#$04
@@ -3540,7 +3565,7 @@ L2530:
 
 L2533:
 				jsr			L2271										; Draw HI SCR
-				jsr			L2b9b
+				jsr			L2b9b										; TOP HIGH... 
 				jsr			L2b61										; Draw DEPOSIT COIN
 				jsr			L26ad
 				lda			#$0a										; COPYRIGHT
@@ -4541,7 +4566,10 @@ L2ad1:
 				inc			$83
 				rts
 
+
+				;; 
 				;; Draw language string a
+				;; 
 L2b00:
 				asl			a												; a*2
 				asl			a												; a*4
@@ -4572,8 +4600,9 @@ L2b00:
 				
 				lda			STATUS
 				and			#$04
-				bne			L2b3b
+				bne			L2b3b										; FLIP
 
+				;; Write string (normal)
 				ldy			#$00
 L2b30:
 				lda			($14), y
@@ -4584,9 +4613,12 @@ L2b30:
 L2b35:
 				sta			($0e), y
 				iny
-				jmp			L2b30
+				jmp			L2b30										; Loop 
 
+
+				;; Write string (flipped)
 L2b3b:
+				;; STRLOC ^= #$03ff
 				lda			$0e
 				eor			#$ff
 				sta			$0e
@@ -4595,11 +4627,12 @@ L2b3b:
 				and			#$03
 				ora			#$40
 				sta			$0f
+
 				ldy			#$00
 				sty			$02
 L2b4f:
 				lda			($14), y
-				bne			L2b54
+				bne			L2b54										; Non-zero 
 
 				rts
 
@@ -4609,9 +4642,12 @@ L2b54:
 				dec			$0e
 				inc			$02
 				ldy			$02
-				jmp			L2b4f
+				jmp			L2b4f										; Loop
 
+
+				;; 
 				;; Draw DEPOSIT COIN
+				;; 
 L2b61:
 				lda			#$05										; DEPOSIT COIN
 				jsr			L2b00										; Draw language string a
@@ -4620,13 +4656,18 @@ L2b61:
 
 				rts
 
+
+				;; 
 				;; Draw "OR PRESS START"
+				;; 
 L2b6b:
 				lda			#$06										; OR PRESS START
 				jmp			L2b00										; Draw language string a
 
 
+				;; 
 				;; Draw quarter coinage
+				;; 
 L2b70:
 				lda			DSW											; DIPs
 				eor			#$ff										; Invert
@@ -4641,10 +4682,12 @@ L2b70:
 
 				rts
 
+				;; 2P_1C
 L2b82:
 				lda			#$00										; 2 players 1 coin
 				jmp			L2b00										; Draw language string a
 
+				;; 1P_1P
 L2b87:
 				lda			#$01										; 1 player  1 coin
 				jsr			L2b00										; Draw language string a
@@ -4652,6 +4695,7 @@ L2b87:
 				lda			#$02										; 2 players 2 coins
 				jmp			L2b00										; Draw language string a
 
+				;; 1P_2C
 L2b91:
 				lda			#$03										; 1 player  2 coins
 				jsr			L2b00										; Draw language string a
@@ -4660,6 +4704,7 @@ L2b91:
 				jmp			L2b00										; Draw language string a
 
 
+				;; TOP HIGH...
 L2b9b:
 				lda			STATUS
 				ora			#$10										; Set bit 4
@@ -4674,17 +4719,19 @@ L2ba6:
 				sta			$0e
 				lda			#$0f										; TOP HIGH SCORE FOR EXTRA PLAY
 				jsr			L2b00										; Draw language string a
-				jmp			L2d50
+				jmp			L2d50										; Long delay 
 
 
+				;; 
 				;; Draw pence coinage
+				;; 
 L2bb5:
 				lda			DSW											; DIPs
 				eor			#$ff										; Invert
 				and			#$02
-				bne			L2bc8										; Full coins	
+				bne			L2bc8										; Full coins
 
-				lda			#$18										;	1P - 2 10p
+				lda			#$18										; 1P - 2 10p
 				jsr			L2b00										; Draw language string a
 				lda			#$19										; 3P - 1 50p
 				jmp			L2b00										; Draw language string a
@@ -4696,7 +4743,9 @@ L2bc8:
 				jmp			L2b00										; Draw language string a
 
 
+				;; 
 				;; Compare player score to high score
+				;; 
 L2bd2:
 				lda			SCOREP+1
 				cmp			SCOREH+1
@@ -4783,6 +4832,7 @@ L2c1d:
 				rts
 
 
+				;; ($0f) = $40 
 L2c2d:
 				lda			#$40
 				sta			$0f
@@ -4799,76 +4849,96 @@ L2c3b:
 				jsr			L2c47
 				lda			#$40
 				sta			$0f
-				sta			$0e
+				sta			$0e											; ($0e-0f) = $4040 
 				jmp			L2cd4
+
 L2c47:
-				jsr			L2c2d
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$02
-				sta			$0e
+				sta			$0e											; ($0e-0f) = $400e
 				lda			#$e0
-				jsr			L2d34
+				jsr			L2d34										; Draw a at ($0e-0f) #$1c = 28 times
+
 				lda			#$43
 				sta			$0f
 				lda			#$a2
-				sta			$0e
+				sta			$0e											; ($0e-0f) = $a243 ??
 				lda			#$e1
-				jsr			L2d34
-				jsr			L2c2d
+				jsr			L2d34										; Draw a at ($0e-0f) #$1c = 28 times
+
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$20
-				sta			$0e
+				sta			$0e											; ($0e-0f) = $400e
 				lda			#$e3
 				jsr			L2d3c
-				jsr			L2c2d
+
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$21
-				sta			$0e
+				sta			$0e											; ($0e-0f) = $4021 
 				lda			#$e2
 				jmp			L2d41
 
+
+				;;
+				;; Flip char codes $00-7f
+				;; 
 L2c78:
-				jsr			L2d84								; Set up character RAM
+				jsr			L2d84										; Set up character RAM (redundant)
+
+				;; ($18-19) = $4800 (start of char ram)
 				lda			#$00
 				sta			$18
 				lda			#$48
 				sta			$19
 L2c83:
-				jsr			L2c8b
+				jsr			L2c8b										; Flip 1 Char
 
-				cmp			#$4d
-				bcc			L2c83
+				cmp			#$4d										; (Up to $4c00)
+				bcc			L2c83										; Loop 
 				rts
 
+
+				;; 
+				;; Flip char at ($18-19) H,V
+				;;
+FLIPCHAR:
 L2c8b:
 				ldx			#$07
 				ldy			#$00
-				sty			$42									; Stash y
+				sty			$42											; Stash y
 				ldy			#$07
 				sty			$02
 L2c95:
 				lda			#$08
-				sta			$03
-				ldy			$42									; Restore y
-				
+				sta			$03											; Loop counter 
+				ldy			$42											; Restore y
+
+				;; Load byte, reverse H into $41
 				lda			($18), y
 L2c9d:
 				ror			a
 				rol			$41
 				dec			$03
-				bne			L2c9d
+				bne			L2c9d										; Loop 
 
+				;; Store (flipped V) to $03f0-03f7
 				lda			$41
 				ldy			$02
 				sta			L03f0, y
 				dec			$02
 				inc			$42
 				dex
-				bpl			L2c95
+				bpl			L2c95										; Loop 
 
+				;; Copy back to original spot
 				ldy			#$07
 L2cb4:
 				lda			L03f0, y
 				sta			($18), y
 				dey
-				bpl			L2cb4
+				bpl			L2cb4										; Loop
+
+				;; ($18-19) += #$08
 				lda			$18
 				clc
 				adc			#$08
@@ -4878,9 +4948,10 @@ L2cb4:
 				sta			$19
 				rts
 
+
 L2cca:
 				jsr			L2d02
-				jsr			L2c2d
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$80
 				sta			$0e
 L2cd4:
@@ -4912,49 +4983,63 @@ L2cf2:
 				bcc			L2cf2
 				rts
 L2d02:
-				jsr			L2c2d
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$42
 				sta			$0e
 				lda			#$e0
-				jsr			L2d34
+				jsr			L2d34										; Draw a at ($0e-0f) #$1c = 28 times
+
 				lda			#$43
 				sta			$0f
 				lda			#$e2
 				sta			$0e
 				lda			#$e1
-				jsr			L2d34
-				jsr			L2c2d
+				jsr			L2d34										; Draw a at ($0e-0f) #$1c = 28 times
+
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$60
 				sta			$0e
 				lda			#$e3
 				jsr			L2d3c
-				jsr			L2c2d
+				jsr			L2c2d										; ($0f) = $40 
 				lda			#$61
 				sta			$0e
 				lda			#$e2
 				jsr			L2d41
 				rts
+
+				;;
+				;; Draw a at ($0e-0f) #$1c = 28 times
+				;; Draw chars horiz
+				;; 
 L2d34:
-				ldy			#$1c
+				ldy			#$1c										; 28x 
 L2d36:
 				dey
 				sta			($0e), y
 				bne			L2d36
 				rts
+
+
+				;; 
+				;; Draw chars vert
+				;; 
 L2d3c:
-				ldy			#$1e
+				ldy			#$1e										; Loc 
 				jmp			L2d43
+
 L2d41:
-				ldy			#$00
+				ldy			#$00										; Loop 
+
 L2d43:
-				ldx			#$1c
+				ldx			#$1c										; 28x
 L2d45:
 				sta			($0e), y
 				pha
-				jsr			L2c03
+				jsr			L2c03										; ($0e-0f) += 20
 				pla
 				dex
-				bne			L2d45
+				bne			L2d45										; Loop 
 				rts
 
 				;; Delay x16 (168 frames)
@@ -4989,6 +5074,10 @@ L2d64:
 				bne			L2d62								; Outer Loop
 				rts
 
+
+				;;
+				;; Set lives from DIPs
+				;; 
 L2d71:
 				lda			DSW	
 				eor			#$ff
@@ -5003,9 +5092,12 @@ L2d71:
 				sta			LIVES
 				rts
 
+
+				;; 
 				;; Set up character RAM
-				;; Clear char rams
+				;; 
 L2d84:
+				;; Clear char rams
 				lda			#$00
 				tax
 L2d87:
@@ -5018,22 +5110,22 @@ L2d87:
 				sta			$4e00, x
 				sta			$4f00, x
 				dex
-				bne			L2d87								; Loop
+				bne			L2d87										; Loop
 
 				;; Copy 10 chars
 				ldx			#$50
 L2da4:
-				lda			L3165, x							; Numbers
-				sta			$4980, x							; Chars $30-39
+				lda			L3165, x								; Numbers
+				sta			$4980, x								; Chars $30-39
 				dex
 				bpl			L2da4
 
 				;; Copy 27 chars
 				;; Alphabet + @
-				ldx			#$d7									; Change this to $ef
+				ldx			#$d7										; Change this to $ef
 L2daf:
-				lda			L31b5, x							; Letters
-				sta			$4a08, x							; Chars $41-5b
+				lda			L31b5, x								; Letters
+				sta			$4a08, x								; Chars $41-5b
 				dex
 				cpx			#$ff
 				bne			L2daf
@@ -5043,25 +5135,25 @@ L2daf:
 				ldx			#$1f
 L2dbc:
 				lda			L3015, x
-				sta			$4f20, x							; Chars $e4-e7
+				sta			$4f20, x								; Chars $e4-e7
 				dex
 				bpl			L2dbc
 
 				;; Horizonal hash
 				lda			#$aa
-				sta			$4f06								; Char $e0
-				sta			$4f09								; Char $e1
+				sta			$4f06										; Char $e0
+				sta			$4f09										; Char $e1
 
 				lda			#$55
-				sta			$4f07								; Char $e0
-				sta			$4f08								; Char $e1
+				sta			$4f07										; Char $e0
+				sta			$4f08										; Char $e1
 
 				;; Copy 2 chars
 				;; Vertical walls
 				ldx			#$0f
 L2dd7:
 				lda			L3095, x
-				sta			$4f10, x							; Chars $e2-e3
+				sta			$4f10, x								; Chars $e2-e3
 				dex
 				bpl			L2dd7
 
@@ -5070,7 +5162,7 @@ L2dd7:
 				ldx			#$5f
 L2de2:
 				lda			L3035, x
-				sta			$4d00, x							; Chars $a0-ab
+				sta			$4d00, x								; Chars $a0-ab
 				dex
 				bpl			L2de2
 
@@ -5079,7 +5171,7 @@ L2de2:
 				ldx			#$1f
 L2ded:
 				lda			L30a5, x
-				sta			$4dd0, x							; Chars $ba-bd
+				sta			$4dd0, x								; Chars $ba-bd
 				dex
 				bpl			L2ded
 
@@ -5088,8 +5180,8 @@ L2ded:
 				ldx			#$27
 L2df8:
 				lda			L30c5, x
-				sta			$4d80, x							; Chars	$b0-b4
-				sta			$4950, x							; Chars	$2a-2e
+				sta			$4d80, x								; Chars $b0-b4
+				sta			$4950, x								; Chars $2a-2e
 				dex
 				bpl			L2df8
 
@@ -5097,29 +5189,33 @@ L2df8:
 				;;
 				ldx			#$07
 L2e06:
-				lda			L3285, x							; @
-				sta			$4af8, x							; Char $5f
-				lda			L328d, x							; #
-				sta			$4af0, x							; Char $5e
+				lda			L3285, x								; @
+				sta			$4af8, x								; Char $5f
+				lda			L328d, x								; #
+				sta			$4af0, x								; Char $5e
 				dex
 				bpl			L2e06
 				rts
 
-				;; Split nybbles
+				;; 
+;				;; Split nybbles
+				;; 
 L2e16:
-				sta			$52									; Store
+				sta			$52											; Store
 				lsr			a
 				lsr			a
 				lsr			a
-				lsr			a										; a>>4
-				pha													; Push hi nybble
+				lsr			a												; a>>4
+				pha															; Push hi nybble
 				lda			$52
-				and			#$0f									; Mask lo nybble
+				and			#$0f										; Mask lo nybble
 				sta			$52
-				pla													; Retrive hi nybble
+				pla															; Retrive hi nybble
 				rts
 
+				;; 
 				;; Clear screen
+				;; 
 CLRSCN:	
 L2e25:
 				lda			#$20
@@ -5132,6 +5228,7 @@ L2e29:
 				dex
 				bne			L2e29
 				rts
+
 
 				;; 
 				;; Kick PRNG, return in a
@@ -5182,6 +5279,9 @@ L2e62:
 				lda			PRNG
 				rts
 
+
+				;; (Not used)
+L2e6e:
 				lda			#$4e
 				sta			$43
 				ldy			#$08
@@ -5205,68 +5305,83 @@ L2e7c:
 				sta			$41
 				nop
 
-				jsr			L2ede										; Copy char to $ff spot, $03f0, $0ef8
+				jsr			L2ede										; Copy char to $ff spot, $03f0, $03e8
 
 				lda			#$00
 				sta			$42											; ($42-43) = 4800
 
-				jsr			L2fb3										; $03e0-$03ef to chars
+				;; 
+				;; Calc vertical offset enemy chars
+				;; 
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				ldx			#$03										; 3 loops
 				stx			$86											; Loop counter
 L2e97:
-				jsr			L2feb										; Scroll $03e0-$03ef up twice
-				jsr			L2fb3										; $03e0-$03ef to chars
+				jsr			L2feb										; Scroll $03e0-03ef up twice
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				dec			$86
 				bne			L2e97										; Loop
 
+
+				;; Calc H offset enemy chars
 				jsr			L2ef4										; HFlip $03f0 char to $03e0
-				jsr			L2fb3										; $03e0-$03ef to chars
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 
 				ldx			#$03										; 3 Loops
 				stx			$86											; Loop counter
 L2eab:
-				jsr			L3001
-				jsr			L2fb3
+				jsr			L3001										; Scroll $03e0-03ef down twice
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				dec			$86
 				bne			L2eab										; Loop
 
-				jsr			L2f02
-				jsr			L2fb3
+				jsr			L2f02										; Rotate $03f0 char into $03e0 (CW)
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				ldx			#$03
 				stx			$86
 L2ebf:
-				jsr			L2fdb
-				jsr			L2fb3
+				jsr			L2fdb										; Scroll $03e0-03ef right twice
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				dec			$86
-				bne			L2ebf
-				jsr			L2f2e
-				jsr			L2fb3
+				bne			L2ebf										; Loop 
+
+				jsr			L2f2e										; Rotate $03e0 char (CCW)
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				ldx			#$03
 				stx			$86
 L2ed3:
-				jsr			L2fcb
-				jsr			L2fb3
+				jsr			L2fcb										; Scroll $03e0-03ef left twice
+				jsr			L2fb3										; $03e0-$03ef to ($42-43)
 				dec			$86
-				bne			L2ed3
+				bne			L2ed3										; Loop
+				
 				rts
 
+				;; 
 				;; Copy char to $ff, main RAM
+				;; 
 L2ede:
 				ldy			#$07
 L2ee0:
-				lda			($40), y							; Get byte from table
-				sta			L03e8, y							; Store to main RAM
-				sta			L03f0, y							; Store to main RAM
-				sta			$4f80, y							; Char $ff
+				lda			($40), y								; Get byte from table
+				sta			L03e8, y								; Store to main RAM
+				sta			L03f0, y								; Store to main RAM
+				sta			$4f80, y								; Char $ff
 				lda			#$00
-				sta			L03e0, y							; Clear in main RAM
+				sta			L03e0, y								; Clear in main RAM
 				dey
 				bpl			L2ee0
+
 				rts
 
 
+				;;
+				;; H Flip $03f0 char into $03e0 
+				;; 
 L2ef4:
-				jsr			L2f85
+				jsr			L2f85										; H Flip $03f0 char into $03e0 
+
+				;; Clear $03e8-03ef
 L2ef7:
 				ldy			#$07
 L2ef9:
@@ -5275,21 +5390,39 @@ L2ef9:
 				dey
 				bne			L2ef9
 				rts
+
+
+				;;
+				;; Rotate $03f0 char into $03e0 (CW)
+				;; 
 L2f02:
-				jsr			L2f0c
-				jsr			L2f5a
-				jsr			L2ef7
+				jsr			L2f0c										; Copy char from $03f0 to $03e0, clear $03e8 
+				jsr			L2f5a										; Rotate $03e0 char
+				jsr			L2ef7										; Clear $03e8-03ef (redundant)
 				rts
+
+
+				;; 
+				;; Copy char from $03f0 to $03e0, clear $03e8
+				;; 
 L2f0c:
 				ldy			#$07
 L2f0e:
-				lda			L03f0, y
+				lda			L03f0, y								; Load byte 
 				sta			L03e0, y
 				lda			#$00
 				sta			L03e8, y
 				dey
-				bpl			L2f0e
+				bpl			L2f0e										; Loop
+				 
 				rts
+
+
+				;;
+				;; (Not used)
+				;; Copy char from $03f0 to $03e8, clear $03e0
+				;;
+L2f1d:
 				ldy			#$07
 L2f1f:
 				lda			L03f0, y
@@ -5297,18 +5430,31 @@ L2f1f:
 				lda			#$00
 				sta			L03e0, y
 				dey
-				bpl			L2f1f
+				bpl			L2f1f										; Loop
+				
 				rts
+
+
+				;;
+				;; Rotate $03e0 char (CCW) into $03e8, Clear $03e0
+				;; 
 L2f2e:
-				jsr			L2f0c
-				jsr			L2f3f
+				jsr			L2f0c										; Copy tmp char 
+				jsr			L2f3f										; Rotate $03e0 char (CCW)
 				ldy			#$07
 L2f36:
 				lda			#$00
 				sta			L03e0, y
 				dey
-				bpl			L2f36
+				bpl			L2f36										; Loop
+				
 				rts
+
+
+				;;
+				;; Rotate $03e0 char into $03e8 (CCW)
+				;; $03e0 -> D7
+				;; 
 L2f3f:
 				ldy			#$00
 L2f41:
@@ -5316,8 +5462,14 @@ L2f41:
 				jsr			L2f4d
 				iny
 				cpy			#$08
-				bne			L2f41
+				bne			L2f41										; Loop
+				
 				rts
+
+
+				;; 
+				;; a -> LSBs of ($03e8-03ef)
+				;; 
 L2f4d:
 				ldx			#$07
 				sta			$03
@@ -5325,16 +5477,26 @@ L2f51:
 				rol			$03
 				rol			L03e8, x
 				dex
-				bpl			L2f51
+				bpl			L2f51										; Loop
+				
 				rts
+
+
+				;; 
+				;; Rotate $03e0 char (CW)
+				;; $03e0 -> D0
+				;; 
 L2f5a:
+				;; Rotate $03e0 char to $03e8
 				ldy			#$00
 L2f5c:
 				lda			L03e0, y
 				jsr			L2f78
 				iny
 				cpy			#$08
-				bne			L2f5c
+				bne			L2f5c										; Loop
+				
+				;; Copy $03e8 char to $03e0
 				ldy			#$07
 L2f69:
 				lda			L03e8, y
@@ -5342,8 +5504,14 @@ L2f69:
 				lda			#$00
 				sta			L03e8, y
 				dey
-				bpl			L2f69
+				bpl			L2f69										; Loop 
+
 				rts
+
+
+				;; 
+				;; a -> MSBs of ($03e8-03ef)
+				;; 
 L2f78:
 				ldx			#$07
 				sta			$03
@@ -5351,19 +5519,23 @@ L2f7c:
 				rol			$03
 				ror			L03e8, x
 				dex
-				bpl			L2f7c
+				bpl			L2f7c										; Loop
+				
 				rts
 
-				;; Flip $03f0 char right-left into $03e0
+
+				;; 
+				;; H Flip $03f0 char into $03e0
+				;; 
 L2f85:
 				ldx			#$07
 				ldy			#$00
-				sty			$45									; Index
-				ldy			#$07									; 7 (8) loops
-				sty			$02									; Outer loop counter
+				sty			$45											; Index
+				ldy			#$07										; 7 (8) loops
+				sty			$02											; Outer loop counter
 L2f8f:
-				lda			#$08									; 8 loops
-				sta			$03									; Inner Loop counter
+				lda			#$08										; 8 loops
+				sta			$03											; Inner Loop counter
 
 				ldy			$45
 				lda			L03f0, y
@@ -5371,7 +5543,7 @@ L2f98:
 				ror			a
 				rol			$44
 				dec			$03
-				bne			L2f98								; Loop
+				bne			L2f98										; Loop
 
 				lda			$44
 				ldy			$02
@@ -5381,10 +5553,13 @@ L2f98:
 				dec			$02
 				inc			$45
 				dex
-				bpl			L2f8f								; Loop
+				bpl			L2f8f										; Loop
 				rts
 
+
+				;; 
 				;; Copy 16 bytes to char code @ ($42-43)
+				;; 
 L2fb3:
 				ldy			#$0f
 L2fb5:
@@ -5404,8 +5579,11 @@ L2fb5:
 				rts
 
 
+				;;
+				;; Shift {$03e0,03d8} left twice
+				;; 
 L2fcb:
-				jsr			L2fce
+				jsr			L2fce										; Twice 
 L2fce:
 				ldx			#$07
 L2fd0:
@@ -5413,8 +5591,14 @@ L2fd0:
 				asl			L03e8, x
 				rol			L03e0, x
 				dex
-				bpl			L2fd0
+				bpl			L2fd0										; Loop 
+
 				rts
+
+
+				;;
+				;; Shift {$03e0,03d8} right twice
+				;; 
 L2fdb:
 				jsr			L2fde
 L2fde:
@@ -5424,39 +5608,51 @@ L2fe0:
 				lsr			L03e0, x
 				ror			L03e8, x
 				dex
-				bpl			L2fe0
+				bpl			L2fe0										; Loop 
+
 				rts
 
-				;; ($03e0-$03ef) <= ($03e2-$03ef, $00, $00)
-L2feb:
-				jsr			L2fee								; Do this twice
 
-				;; Scroll 2 chars in memory up
+				;; 
+				;; ($03e0-03ef) <= ($03e2-03ef, $00, $00)
+				;; 
+L2feb:
+				jsr			L2fee										; Twice
+
+				;; Scroll 2 chars up
 L2fee:
-				ldx			#$00
+				ldx			#$00										; Start at the top 
 L2ff0:
 				lda			L03e1, x
 				sta			L03e0, x
 				inx
 				cpx			#$0f
-				bne			L2ff0								; Loop
+				bne			L2ff0										; Loop
+
 				lda			#$00
-				sta			L03ef								; Clear final byte
+				sta			L03ef										; Clear final byte
 				rts
 
 
+				;; 
+				;; ($03e0-03ef) <= ($00, $00, $03e0-03ed)
+				;; 
 L3001:
-				jsr			L3004
+				jsr			L3004										; Twice
+
+				;; Scroll 2 chars down
 L3004:
-				ldx			#$0e
+				ldx			#$0e										; Start at the bottom 
 L3006:
 				lda			L03e0, x
 				sta			L03e1, x
 				dex
-				bpl			L3006
+				bpl			L3006										; Loop
+
 				lda			#$00
-				sta			L03e0
+				sta			L03e0										; Clear first byte 
 				rts
+
 
 				;;
 				;; Main character codes
